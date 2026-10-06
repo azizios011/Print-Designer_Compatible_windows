@@ -15,7 +15,7 @@ export const useMainStore = defineStore("MainStore", {
 		 */
 		textControlType: "dynamic",
 		/**
-		 * @type {'editing'|'footer'|'header'} mode
+		 * @type {'editing'|'footer'|'header'|'univer'} mode
 		 */
 		schema_version: "1.3.0",
 		mode: "editing",

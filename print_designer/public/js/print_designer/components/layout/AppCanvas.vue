@@ -5,6 +5,7 @@
 			id="canvas"
 			ref="canvasContainer"
 			v-marquee="marqueeOptions"
+			v-show="MainStore.mode != 'univer'"
 			:style="[MainStore.mode == 'editing' && { cursor: MainStore.cursor }]"
 		>
 			<AppPages v-for="page in ElementStore.Elements" :key="page.index" :page="page" />
@@ -92,6 +93,7 @@
 			<AppUserProvidedJinjaModal v-if="!!MainStore.openJinjaModal" />
 		</div>
 		<AppPreviewPdf v-if="MainStore.mode == 'preview'" />
+		<AppUniverCanvas v-if="MainStore.mode == 'univer'" />
 	</div>
 </template>
 <script setup>
@@ -101,6 +103,7 @@ import AppDynamicTextModal from "./AppDynamicTextModal.vue";
 import AppUserProvidedJinjaModal from "./AppUserProvidedJinjaModal.vue";
 import AppBarcodeModal from "./AppBarcodeModal.vue";
 import AppImageModal from "./AppImageModal.vue";
+import AppUniverCanvas from "./AppUniverCanvas.vue";
 import IconsUse from "../../icons/IconsUse.vue";
 import { watch, watchEffect, onMounted, ref, nextTick } from "vue";
 import { useMainStore } from "../../store/MainStore";
