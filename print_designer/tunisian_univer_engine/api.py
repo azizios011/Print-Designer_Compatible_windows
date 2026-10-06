@@ -188,3 +188,11 @@ def extract_document(attachment: str, doc_type: str) -> dict:
 		return {"success": False, "error": f"Could not parse the extraction response: {e}"}
 
 	return {"success": True, "data": extracted}
+
+
+@frappe.whitelist()
+def get_schema(doc_type: str) -> dict:
+	schema = SCHEMAS.get(doc_type)
+	if schema is None:
+		return {"success": False, "error": "Unknown document type"}
+	return {"success": True, "schema": schema}

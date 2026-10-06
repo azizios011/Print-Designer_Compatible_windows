@@ -17,6 +17,18 @@
 			{{ print_format_name }}
 		</h3>
 		<span class="indicator-pill no-indicator-dot ellipsis gray">Beta</span>
+		<button class="btn btn-sm btn-default univer-btn" @click="openUniverDialog">
+			<svg
+				width="14"
+				height="14"
+				viewBox="0 0 16 16"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<use href="#es-line-add" style="--icon-stroke: var(--invert-neutral)" />
+			</svg>
+			<span>Univer</span>
+		</button>
 		<button class="btn btn-sm btn-default exit-btn" @click="goToLastPage">
 			<svg
 				width="14"
@@ -34,9 +46,55 @@
 <script setup>
 import { ref } from "vue";
 import { useMainStore } from "../../store/MainStore";
+import { useUniverStore } from "../../store/UniverStore";
 import { selectElementContents } from "../../utils";
 
 const MainStore = useMainStore();
+const UniverStore = useUniverStore();
+
+const openUniverDialog = () => {
+	let attachment_url = null;
+	const dialog = new frappe.ui.Dialog({
+		title: __("Univer Document Review"),
+		fields: [
+			{
+				label: __("Document Type"),
+				fieldname: "doc_type",
+				fieldtype: "Select",
+				options: [
+					{ label: __("Releve Bancaire"), value: "releve_bancaire" },
+					{ label: __("Releve Vente"), value: "releve_vente" },
+				],
+				reqd: 1,
+				default: "releve_bancaire",
+			},
+		],
+		primary_action_label: __("Extract"),
+		primary_action(values) {
+			if (!attachment_url) {
+				frappe.msgprint({
+					message: __("Please upload a file first."),
+					indicator: "red",
+				});
+				return;
+			}
+			dialog.hide();
+			MainStore.mode = "univer";
+			UniverStore.extractFromAttachment(attachment_url, values.doc_type);
+		},
+	});
+	new frappe.ui.FileUploader({
+		wrapper: dialog.body,
+		allow_multiple: false,
+		restrictions: {
+			allowed_file_types: [".pdf", ".jpg", ".jpeg", ".png"],
+		},
+		on_success: (file) => {
+			attachment_url = file.file_url;
+		},
+	});
+	dialog.show();
+};
 
 const contenteditable = ref(false);
 
@@ -137,6 +195,13 @@ const goToLastPage = () => {
 		margin-bottom: 0;
 		user-select: none;
 		cursor: text;
+	}
+
+	.univer-btn {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 2px 8px;
 	}
 
 	.exit-btn {
