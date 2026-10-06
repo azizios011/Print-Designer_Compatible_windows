@@ -65,12 +65,18 @@ const openUniverDialog = () => {
 					{ label: __("Releve Bancaire"), value: "releve_bancaire" },
 					{ label: __("Releve Vente"), value: "releve_vente" },
 				],
-				reqd: 1,
 				default: "releve_bancaire",
 			},
 		],
 		primary_action_label: __("Extract"),
 		primary_action(values) {
+			if (!values?.doc_type) {
+				frappe.msgprint({
+					message: __("Please select a document type."),
+					indicator: "red",
+				});
+				return;
+			}
 			if (!attachment_url) {
 				frappe.msgprint({
 					message: __("Please upload a file first."),
@@ -83,8 +89,13 @@ const openUniverDialog = () => {
 			UniverStore.extractFromAttachment(attachment_url, values.doc_type);
 		},
 	});
+	// the uploader must not mount into dialog.body itself: Vue 3 mount()
+	// clears the wrapper's innerHTML, which would wipe the fields the
+	// Dialog's FieldGroup rendered there
+	const uploader_wrapper = document.createElement("div");
+	dialog.body.appendChild(uploader_wrapper);
 	new frappe.ui.FileUploader({
-		wrapper: dialog.body,
+		wrapper: uploader_wrapper,
 		allow_multiple: false,
 		restrictions: {
 			allowed_file_types: [".pdf", ".jpg", ".jpeg", ".png"],
