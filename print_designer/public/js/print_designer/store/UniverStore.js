@@ -27,6 +27,14 @@ export const useUniverStore = defineStore("UniverStore", {
 		extracted: null,
 		loading: false,
 		error: null,
+		/**
+		 * @type {object|null} checks reconciliation numbers from the deterministic parser
+		 */
+		checks: null,
+		/**
+		 * @type {string|null} source "parser:banque_zitouna" or "vlm"
+		 */
+		source: null,
 	}),
 	actions: {
 		async extractFromAttachment(attachment, docType) {
@@ -34,6 +42,8 @@ export const useUniverStore = defineStore("UniverStore", {
 			this.schema = null;
 			this.extracted = null;
 			this.error = null;
+			this.checks = null;
+			this.source = null;
 			this.loading = true;
 			try {
 				const schemaResult = await frappe.call({
@@ -58,6 +68,8 @@ export const useUniverStore = defineStore("UniverStore", {
 				const extractMessage = extractResult?.message;
 				if (extractMessage?.success) {
 					this.extracted = extractMessage.data;
+					this.checks = extractMessage.checks ?? null;
+					this.source = extractMessage.source ?? null;
 					return this.extracted;
 				}
 				this.error = extractMessage?.error || "Could not extract the document data.";
@@ -114,6 +126,27 @@ export const useUniverStore = defineStore("UniverStore", {
 				setCell(rowIndex, 1, data[key]);
 				rowIndex++;
 			});
+			// reconciliation result of the deterministic parser
+			if (this.checks) {
+				const balanced = this.checks.balanced === true;
+				const formatAmount = (value) =>
+					value === null || value === undefined
+						? "—"
+						: Number(value).toFixed(3).replace(".", ",");
+				const summary = `${balanced ? "OK — équilibré" : "ÉCART — vérifier"} — clôture calculée ${formatAmount(this.checks.computed_closing)} vs imprimée ${formatAmount(this.checks.printed_closing)}`;
+				const controlStyle = {
+					bold: 1,
+					bg: { rgb: balanced ? "#e8f5e9" : "#fdecea" },
+				};
+				setCell(rowIndex, 0, "Contrôle", controlStyle);
+				setCell(rowIndex, 1, summary, controlStyle);
+				rowIndex++;
+			}
+			if (this.source) {
+				setCell(rowIndex, 0, "Source", { fs: 9 });
+				setCell(rowIndex, 1, this.source, { fs: 9 });
+				rowIndex++;
+			}
 			// one blank row between the header fields and the entries table
 			rowIndex++;
 			entryKeys.forEach((key, columnIndex) => {
