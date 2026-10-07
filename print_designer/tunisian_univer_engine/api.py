@@ -7,7 +7,10 @@ import json
 import frappe
 import requests
 
+from print_designer.tunisian_univer_engine import parsers
 from print_designer.tunisian_univer_engine.schemas import SCHEMAS
+
+MAX_PDF_PAGES = 12
 
 
 def _get_settings() -> tuple[str, str, str]:
@@ -29,13 +32,18 @@ def _load_file_bytes(attachment: str) -> tuple[bytes, str]:
 	return content, ext
 
 
-def _pdf_first_page_to_png(pdf_bytes: bytes) -> bytes:
-	import fitz  # PyMuPDF
+def _pdf_page_count(pdf_bytes: bytes) -> int:
+	import pymupdf
 
-	doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-	page = doc.load_page(0)
-	pix = page.get_pixmap(dpi=200)
-	return pix.tobytes("png")
+	with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+		return doc.page_count
+
+
+def _pdf_pages_to_pngs(pdf_bytes: bytes) -> list[bytes]:
+	import pymupdf
+
+	with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+		return [page.get_pixmap(dpi=200).tobytes("png") for page in doc]
 
 
 def _build_extraction_prompt(schema: dict, doc_type: str) -> str:
@@ -98,16 +106,23 @@ def _call_anthropic(api_key: str, model: str, content: bytes, ext: str, prompt: 
 
 def _call_openrouter(api_key: str, model: str, content: bytes, ext: str, prompt: str) -> str:
 	if ext == "pdf":
-		content = _pdf_first_page_to_png(content)
-		media_type = "image/png"
+		images = [("image/png", png) for png in _pdf_pages_to_pngs(content)]
 	elif ext in ("jpg", "jpeg"):
-		media_type = "image/jpeg"
+		images = [("image/jpeg", content)]
 	elif ext == "png":
-		media_type = "image/png"
+		images = [("image/png", content)]
 	else:
 		frappe.throw(f"Unsupported attachment type: .{ext}")
 
-	encoded = base64.b64encode(content).decode("utf-8")
+	encoded_images = [
+		{
+			"type": "image_url",
+			"image_url": {
+				"url": f"data:{media_type};base64,{base64.b64encode(image).decode('utf-8')}"
+			},
+		}
+		for media_type, image in images
+	]
 	response = requests.post(
 		"https://openrouter.ai/api/v1/chat/completions",
 		headers={
@@ -120,13 +135,7 @@ def _call_openrouter(api_key: str, model: str, content: bytes, ext: str, prompt:
 			"messages": [
 				{
 					"role": "user",
-					"content": [
-						{"type": "text", "text": prompt},
-						{
-							"type": "image_url",
-							"image_url": {"url": f"data:{media_type};base64,{encoded}"},
-						},
-					],
+					"content": [{"type": "text", "text": prompt}, *encoded_images],
 				}
 			],
 		},
@@ -153,14 +162,27 @@ def extract_document(attachment: str, doc_type: str) -> dict:
 		}
 
 	try:
-		provider, api_key, model = _get_settings()
-	except Exception as e:
-		return {"success": False, "error": str(e)}
-
-	try:
 		content, ext = _load_file_bytes(attachment)
 	except Exception as e:
 		return {"success": False, "error": f"Could not read the attached file: {e}"}
+
+	# digital statements with a text layer are parsed exactly; the VLM is
+	# only the fallback for scans or unknown layouts
+	if doc_type == "releve_bancaire" and ext == "pdf":
+		parser_result = _parse_statement(content)
+		if parser_result is not None:
+			return {"success": True, **parser_result}
+
+	if ext == "pdf" and _pdf_page_count(content) > MAX_PDF_PAGES:
+		return {
+			"success": False,
+			"error": "Document too long for automatic extraction (max 12 pages)",
+		}
+
+	try:
+		provider, api_key, model = _get_settings()
+	except Exception as e:
+		return {"success": False, "error": str(e)}
 
 	prompt = _build_extraction_prompt(schema, doc_type)
 
@@ -187,7 +209,17 @@ def extract_document(attachment: str, doc_type: str) -> dict:
 	except Exception as e:
 		return {"success": False, "error": f"Could not parse the extraction response: {e}"}
 
-	return {"success": True, "data": extracted}
+	return {"success": True, "data": extracted, "source": "vlm"}
+
+
+def _parse_statement(pdf_bytes: bytes) -> dict | None:
+	"""Run the deterministic statement parsers; any parser failure falls back
+	to the VLM path instead of failing the extraction."""
+	try:
+		return parsers.parse_statement(pdf_bytes)
+	except Exception:
+		frappe.log_error(title="Bank statement parser failed", message=frappe.get_traceback())
+		return None
 
 
 @frappe.whitelist()
