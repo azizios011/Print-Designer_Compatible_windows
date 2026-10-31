@@ -1,0 +1,32 @@
+{
+ "actions": [],
+ "creation": "2026-10-31 00:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "Document",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "field_order": ["enabled", "document_server_section", "public_url", "internal_url", "callback_section", "frappe_internal_url", "security_section", "jwt_secret"],
+ "fields": [
+  {"fieldname": "enabled", "fieldtype": "Check", "default": "0", "label": "Enabled"},
+  {"fieldname": "document_server_section", "fieldtype": "Section Break", "label": "Document Server"},
+  {"fieldname": "public_url", "fieldtype": "Data", "default": "http://localhost", "label": "Public URL", "description": "URL the browser uses to load the editor (api.js)"},
+  {"fieldname": "internal_url", "fieldtype": "Data", "default": "http://onlyoffice", "label": "Internal URL", "description": "URL this Frappe server uses to reach the Document Server"},
+  {"fieldname": "callback_section", "fieldtype": "Section Break", "label": "Callback"},
+  {"fieldname": "frappe_internal_url", "fieldtype": "Data", "default": "http://frappe-dev-default:8000", "label": "Frappe Internal URL", "description": "URL the Document Server uses to reach Frappe (file download and save callback)"},
+  {"fieldname": "security_section", "fieldtype": "Section Break", "label": "Security"},
+  {"fieldname": "jwt_secret", "fieldtype": "Password", "label": "JWT Secret", "description": "Must equal JWT_SECRET of the Document Server container"}
+ ],
+ "links": [],
+ "modified": "2026-10-31 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Tunisian Univer Engine",
+ "name": "OnlyOffice Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "role": "System Manager", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
