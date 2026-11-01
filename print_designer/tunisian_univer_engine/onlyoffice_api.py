@@ -1,7 +1,9 @@
 # Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-from urllib.parse import urlencode
+import os
+import re
+from urllib.parse import urlencode, urlsplit
 
 import requests
 
@@ -17,6 +19,24 @@ from print_designer.tunisian_univer_engine.onlyoffice_core import (
 )
 
 MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024
+
+
+def _reply(code: int) -> None:
+	"""Answer the Document Server with exactly {"error": code} at the top level."""
+	frappe.local.response["error"] = code
+
+
+def _strip_query_strings(text: str) -> str:
+	"""Remove every URL query string (?...) from text before logging it."""
+	return re.sub(r"\?\S+", "", text or "")
+
+
+def _prepare_log_dirs() -> None:
+	"""frappe's logger writes to ../logs (bench level) and <site>/logs (site
+	level) relative to the working directory; create both so
+	RotatingFileHandler cannot fail inside the callback."""
+	os.makedirs(os.path.abspath(os.path.join(os.getcwd(), "..", "logs")), exist_ok=True)
+	os.makedirs(os.path.join(os.getcwd(), "dev.local", "logs"), exist_ok=True)
 
 
 @frappe.whitelist()
@@ -126,14 +146,18 @@ def download(file: str, oo_token: str) -> None:
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
-def save_callback() -> dict:
+def save_callback() -> None:
 	"""Document Server save callback.
 
-	The Document Server posts JSON; frappe v17 maps form_dict to the JSON
-	body only, so the file name and the outer callback token travel in the
-	QUERY STRING and are read from the request args here. The Document
-	Server's own JWT arrives inside the JSON body as "token".
+	Replies with exactly {"error": 0|1} at the top level of the response
+	(frappe.local.response), with no frappe "message" wrapper. The Document
+	Server posts JSON; frappe maps form_dict to the JSON body only, so the
+	file name and the outer callback token travel in the QUERY STRING and
+	are read from the request args here. The Document Server's own JWT
+	arrives inside the JSON body as "token".
 	"""
+	_prepare_log_dirs()
+	log = frappe.logger("onlyoffice", allow_site=True, file_count=5)
 	file = frappe.request.args.get("file")
 	oo_token = frappe.request.args.get("oo_token")
 	payload = verify(oo_token)
@@ -149,30 +173,50 @@ def save_callback() -> dict:
 			if header.startswith("Bearer "):
 				callback_token = header[len("Bearer ") :].strip()
 		if not callback_token:
-			return {"error": 1}
+			log.error("callback file=%s: no Document Server token in body or header", file)
+			_reply(1)
+			return
 		try:
 			claims = verify(callback_token)
 		except frappe.PermissionError:
-			return {"error": 1}
+			log.error("callback file=%s: invalid Document Server token", file)
+			_reply(1)
+			return
 		data = claims.get("payload", claims)
 		status = data.get("status")
+		log.info("callback file=%s status=%s", file, status)
 		if status in (2, 6):
-			_overwrite_file_from_document_server(file, str(data.get("url") or ""), user=payload.get("user"))
-			return {"error": 0}
+			url = str(data.get("url") or "")
+			if not url:
+				log.error("callback file=%s status=%s: no url in Document Server payload", file, status)
+				_reply(1)
+				return
+			log.info("download url path=%s", urlsplit(url).path)
+			content, download_status = _download_from_document_server(url)
+			log.info("download status=%s bytes=%s", download_status, len(content))
+			_overwrite_file(file=file, content=content, user=payload.get("user"))
+			log.info("save ok file=%s bytes=%s", file, len(content))
+			_reply(0)
+			return
 		if status in (1, 3, 4, 7):
-			return {"error": 0}
-		return {"error": 1}
+			_reply(0)
+			return
+		log.error("callback file=%s: unknown status=%s", file, status)
+		_reply(1)
+		return
 	except Exception as error:
-		frappe.log_error(
-			title=_("OnlyOffice save callback failed"),
-			message=_("file={0} status={1} error={2}").format(file, status, type(error).__name__),
+		detail = _strip_query_strings(
+			"{0}: {1}".format(type(error).__name__, str(error))
+			+ " | traceback: "
+			+ frappe.get_traceback(with_context=False)[:4000]
 		)
-		return {"error": 1}
+		log.error("callback file=%s status=%s %s", file, status, detail)
+		frappe.log_error(title=_("OnlyOffice save callback failed"), message=detail)
+		_reply(1)
+		return
 
 
-def _overwrite_file_from_document_server(file: str, url: str, user: str) -> None:
-	if not url:
-		frappe.throw(_("Document Server returned no file URL."))
+def _download_from_document_server(url: str) -> tuple[bytes, int]:
 	local_url = internalize(url)
 	response = requests.get(local_url, timeout=30, stream=True)
 	response.raise_for_status()
@@ -183,8 +227,10 @@ def _overwrite_file_from_document_server(file: str, url: str, user: str) -> None
 		if total > MAX_DOWNLOAD_SIZE:
 			frappe.throw(_("File exceeds the 100 MB limit."))
 		chunks.append(chunk)
-	content = b"".join(chunks)
+	return b"".join(chunks), response.status_code
 
+
+def _overwrite_file(file: str, content: bytes, user: str) -> None:
 	file_doc = frappe.get_doc("File", file)
 	if file_doc.is_remote_file:
 		frappe.throw(_("Remote files cannot be overwritten."))
