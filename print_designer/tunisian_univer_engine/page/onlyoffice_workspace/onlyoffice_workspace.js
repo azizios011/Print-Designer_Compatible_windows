@@ -40,10 +40,12 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 	page.add_inner_button(__("Close"), () => wrapper.onlyoffice.close_editor());
 
 	wrapper.onlyoffice.editor_wrapper = $(
-		'<div class="onlyoffice-editor-wrapper" style="display: none;">' +
-			'<div id="onlyoffice-editor" style="height: calc(100vh - 140px);"></div>' +
-			"</div>"
+		'<div class="onlyoffice-editor-wrapper" style="display: none; height: calc(100vh - 150px); min-height: 400px;"></div>'
 	).appendTo(page.main);
+
+	wrapper.onlyoffice.reset_placeholder = function () {
+		wrapper.onlyoffice.editor_wrapper.html('<div id="onlyoffice-editor"></div>');
+	};
 
 	wrapper.onlyoffice.close_editor = function () {
 		if (wrapper.onlyoffice.editor) {
@@ -54,7 +56,8 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 			}
 			wrapper.onlyoffice.editor = null;
 		}
-		wrapper.onlyoffice.editor_wrapper.empty().hide();
+		wrapper.onlyoffice.reset_placeholder();
+		wrapper.onlyoffice.editor_wrapper.hide();
 		page.set_title(__("Document Workspace"));
 	};
 
@@ -63,20 +66,37 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 			return Promise.resolve();
 		}
 		return new Promise((resolve, reject) => {
-			let script = document.querySelector("script[data-onlyoffice-api]");
-			if (!script) {
-				script = document.createElement("script");
+			const attach = (script) => {
+				script.addEventListener("load", () => {
+					script.dataset.onlyofficeApiState = "loaded";
+					resolve();
+				});
+				script.addEventListener("error", () => {
+					script.dataset.onlyofficeApiState = "failed";
+					reject(new Error(__("Failed to load the OnlyOffice API.")));
+				});
+			};
+			const create = () => {
+				const script = document.createElement("script");
 				script.src = api_js_url;
 				script.setAttribute("data-onlyoffice-api", "1");
-				script.onload = () => resolve();
-				script.onerror = () => reject(new Error(__("Failed to load the OnlyOffice API.")));
+				script.dataset.onlyofficeApiState = "loading";
+				attach(script);
 				document.head.appendChild(script);
+			};
+			const script = document.querySelector("script[data-onlyoffice-api]");
+			if (script && script.dataset.onlyofficeApiState === "loading") {
+				// an earlier attempt is still in flight; ride along
+				attach(script);
 				return;
 			}
-			script.addEventListener("load", () => resolve());
-			script.addEventListener("error", () =>
-				reject(new Error(__("Failed to load the OnlyOffice API.")))
-			);
+			if (script) {
+				// a previous attempt finished without defining DocsAPI (failed
+				// load): remove it so a fresh tag is created and this promise
+				// can actually settle
+				script.remove();
+			}
+			create();
 		});
 	};
 
@@ -119,14 +139,30 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 	wrapper.onlyoffice.open_editor = function (data) {
 		const config = data.config;
 		config.events = {
-			onError: function () {
+			onAppReady: function () {
+				console.info("OnlyOffice app ready");
+			},
+			onDocumentReady: function () {
+				console.info("OnlyOffice document ready");
+			},
+			onWarning: function (event) {
+				console.warn("OnlyOffice warning", event && event.data);
+			},
+			onError: function (event) {
+				console.error("OnlyOffice error", event && event.data);
+				const description =
+					event && event.data && typeof event.data.errorDescription === "string"
+						? event.data.errorDescription
+						: __("The editor reported an error.");
 				frappe.msgprint({
 					title: __("OnlyOffice Workspace"),
-					message: __("The editor reported an error."),
+					message: description,
 					indicator: "red",
 				});
 			},
 		};
+		config.width = "100%";
+		config.height = "100%";
 		if (wrapper.onlyoffice.editor) {
 			wrapper.onlyoffice.close_editor();
 		}
@@ -135,6 +171,15 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		wrapper.onlyoffice
 			.load_api_script(data.api_js_url)
 			.then(() => {
+				if (window.DocsAPI && !document.getElementById("onlyoffice-editor")) {
+					frappe.msgprint({
+						title: __("OnlyOffice Workspace"),
+						message: __("Editor container missing"),
+						indicator: "red",
+					});
+					return;
+				}
+				wrapper.onlyoffice.reset_placeholder();
 				wrapper.onlyoffice.editor = new DocsAPI.DocEditor("onlyoffice-editor", config);
 			})
 			.catch(() => {
