@@ -126,7 +126,16 @@ def download(file: str, oo_token: str) -> None:
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
-def save_callback(file: str, oo_token: str) -> dict:
+def save_callback() -> dict:
+	"""Document Server save callback.
+
+	The Document Server posts JSON; frappe v17 maps form_dict to the JSON
+	body only, so the file name and the outer callback token travel in the
+	QUERY STRING and are read from the request args here. The Document
+	Server's own JWT arrives inside the JSON body as "token".
+	"""
+	file = frappe.request.args.get("file")
+	oo_token = frappe.request.args.get("oo_token")
 	payload = verify(oo_token)
 	if payload.get("purpose") != "oo-save" or payload.get("file") != file:
 		frappe.throw(_("Invalid callback token."), frappe.PermissionError)
