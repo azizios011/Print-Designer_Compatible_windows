@@ -12,6 +12,7 @@ app_license = "AGPLv3"
 
 # include js, css files in header of desk.html
 # app_include_js = ""
+app_include_js = "/assets/print_designer/js/tunisian_univer/global.js"
 
 
 # include js, css files in header of web template
