@@ -4,7 +4,6 @@
 from urllib.parse import urlencode
 
 import requests
-import urllib3
 
 import frappe
 from frappe import _
@@ -20,11 +19,6 @@ from print_designer.tunisian_univer_engine.onlyoffice_core import (
 MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024
 
 
-def _quiet_tls() -> None:
-	"""The dev Document Server answers over a self-signed certificate."""
-	urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-
 @frappe.whitelist()
 def check_connection() -> dict:
 	"""Ping the Document Server healthcheck endpoint.
@@ -38,9 +32,8 @@ def check_connection() -> dict:
 	if not internal_url:
 		return {"ok": False, "detail": _("Internal URL is not set.")}
 
-	_quiet_tls()
 	try:
-		response = requests.get(f"{internal_url}/healthcheck", timeout=5, verify=False)
+		response = requests.get(f"{internal_url}/healthcheck", timeout=5)
 	except requests.exceptions.RequestException as error:
 		return {"ok": False, "detail": _("Document Server did not answer: {0}").format(str(error)[:200])}
 
@@ -66,9 +59,15 @@ def get_editor_config(file: str, mode: str = "edit") -> dict:
 	settings = get_settings()
 	mode = "edit" if (mode == "edit" and can_edit and file_doc.has_permission("write")) else "view"
 
-	api_base = "{0}/api/method/print_designer.tunisian_univer_engine.onlyoffice_api".format(
-		(settings.internal_url or "").rstrip("/")
-	)
+	# download_url and callbackUrl are fetched by the DOCUMENT SERVER, so they
+	# must point at Frappe via frappe_internal_url (internal_url would make the
+	# Document Server call itself).
+	frappe_internal_url = (settings.frappe_internal_url or "").rstrip("/")
+	if not frappe_internal_url:
+		frappe.throw(
+			_("Frappe Internal URL is empty. Set it in OnlyOffice Settings: it is how the Document Server reaches Frappe.")
+		)
+	api_base = "{0}/api/method/print_designer.tunisian_univer_engine.onlyoffice_api".format(frappe_internal_url)
 	download_url = "{0}.download?{1}".format(
 		api_base,
 		urlencode({"file": file, "token": sign({"purpose": "oo-download", "file": file}, ttl=1800)}),
@@ -165,8 +164,7 @@ def _overwrite_file_from_document_server(file: str, url: str, user: str) -> None
 	if not url:
 		frappe.throw(_("Document Server returned no file URL."))
 	local_url = internalize(url)
-	_quiet_tls()
-	response = requests.get(local_url, timeout=30, stream=True, verify=False)
+	response = requests.get(local_url, timeout=30, stream=True)
 	response.raise_for_status()
 	chunks = []
 	total = 0

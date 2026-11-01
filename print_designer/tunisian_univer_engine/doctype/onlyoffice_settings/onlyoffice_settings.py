@@ -17,5 +17,7 @@ class OnlyOfficeSettings(Document):
 				label = self.meta.get_label(fieldname)
 				frappe.throw(_("{0} must start with http:// or https://").format(label))
 			setattr(self, fieldname, url)
+		if self.internal_url and self.frappe_internal_url and self.internal_url == self.frappe_internal_url:
+			frappe.throw(_("Internal URL and Frappe Internal URL must point to different services."))
 		if self.enabled and not self.get_password("jwt_secret", raise_exception=False):
 			frappe.throw(_("JWT Secret is required when OnlyOffice is enabled."))
