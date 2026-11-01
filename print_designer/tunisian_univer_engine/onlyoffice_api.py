@@ -17,6 +17,10 @@ from print_designer.tunisian_univer_engine.onlyoffice_core import (
 	sign,
 	verify,
 )
+from print_designer.tunisian_univer_engine.templates.registry import (
+	build as build_template,
+	get_templates as get_registry_templates,
+)
 
 MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024
 
@@ -239,3 +243,72 @@ def _overwrite_file(file: str, content: bytes, user: str) -> None:
 	file_doc.save_file(content=content, overwrite=True, ignore_existing_file_check=True)
 	file_doc.save()
 	file_doc.db_set("modified_by", user, update_modified=False)
+
+
+@frappe.whitelist(methods=["GET"])
+def get_templates(doctype: str, document_format: str) -> list:
+	return get_registry_templates(doctype, document_format)
+
+
+@frappe.whitelist(methods=["POST"])
+def create_print_format(
+	doctype: str, print_format_name: str, document_format: str, template_id: str
+) -> dict:
+	frappe.has_permission("Print Format", "create", throw=True)
+	if document_format not in ("xlsx", "docx"):
+		frappe.throw(_("Document Format must be xlsx or docx."))
+	if not frappe.db.exists("DocType", doctype):
+		frappe.throw(_("DocType {0} does not exist.").format(doctype))
+	if frappe.db.exists("Print Format", print_format_name):
+		frappe.throw(_("Print Format {0} already exists.").format(print_format_name))
+
+	ext, content = build_template(template_id)
+
+	format_doc = frappe.new_doc("Print Format")
+	format_doc.doc_type = doctype
+	format_doc.name = print_format_name
+	format_doc.standard = "No"
+	format_doc.custom_format = 1
+	format_doc.html = "<!-- Designed in the OnlyOffice Document Workspace -->"
+	format_doc.onlyoffice_format = document_format
+	format_doc.insert()
+
+	file_doc = frappe.new_doc("File")
+	file_doc.file_name = f"{print_format_name}.{ext}"
+	file_doc.is_private = 1
+	file_doc.attached_to_doctype = "Print Format"
+	file_doc.attached_to_name = format_doc.name
+	file_doc.content = content
+	file_doc.insert()
+
+	format_doc.db_set("onlyoffice_template", file_doc.name)
+	return {"print_format": format_doc.name, "file": file_doc.name}
+
+
+@frappe.whitelist(methods=["GET"])
+def get_print_format_info(print_format: str) -> dict:
+	frappe.has_permission("Print Format", "read", doc=print_format, throw=True)
+	row = frappe.db.get_value(
+		"Print Format",
+		print_format,
+		["doc_type", "onlyoffice_format", "onlyoffice_template"],
+		as_dict=True,
+	)
+	if not row or not row.onlyoffice_format:
+		return {}
+	return {
+		"doc_type": row.doc_type,
+		"document_format": row.onlyoffice_format,
+		"template_file": row.onlyoffice_template,
+	}
+
+
+@frappe.whitelist(methods=["GET"])
+def list_print_formats(doctype: str) -> list:
+	names = frappe.get_all(
+		"Print Format",
+		filters={"doc_type": doctype, "onlyoffice_format": ("is", "set")},
+		order_by="creation desc",
+		pluck="name",
+	)
+	return [name for name in names if frappe.has_permission("Print Format", "read", doc=name)]
