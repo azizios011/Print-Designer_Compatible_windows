@@ -1,0 +1,24 @@
+{
+ "doctype": "Print Format",
+ "custom_fields": [
+  {
+   "dt": "Print Format",
+   "fieldname": "onlyoffice_format",
+   "fieldtype": "Select",
+   "label": "Document Format",
+   "options": "\nxlsx\ndocx",
+   "description": "Set when this format is designed in the Document Workspace",
+   "insert_after": "doc_type"
+  },
+  {
+   "dt": "Print Format",
+   "fieldname": "onlyoffice_template",
+   "fieldtype": "Link",
+   "options": "File",
+   "label": "Template File",
+   "read_only": 1,
+   "insert_after": "onlyoffice_format"
+  }
+ ],
+ "sync_on_migrate": 1
+}
