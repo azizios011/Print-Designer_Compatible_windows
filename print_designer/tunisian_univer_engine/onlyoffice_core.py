@@ -10,6 +10,11 @@ import frappe
 import jwt
 from frappe import _
 
+# OnlyOffice Settings field meanings:
+#   internal_url        = how Frappe reaches the Document Server (e.g. http://onlyoffice)
+#   frappe_internal_url = how the Document Server reaches Frappe (e.g. http://frappe-dev-default:8000)
+#   public_url          = how the BROWSER reaches the Document Server (e.g. http://localhost)
+
 FILE_TYPES = {
 	"docx": ("word", True),
 	"xlsx": ("cell", True),
