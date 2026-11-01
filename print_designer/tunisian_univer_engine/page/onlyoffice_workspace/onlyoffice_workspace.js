@@ -4,7 +4,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		title: __("Document Workspace"),
 		single_column: true,
 	});
-	wrapper.onlyoffice = { editor: null };
+	wrapper.onlyoffice = { editor: null, open_id: 0 };
 
 	wrapper.onlyoffice.file_field = page.add_field({
 		fieldname: "file",
@@ -48,6 +48,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 	};
 
 	wrapper.onlyoffice.close_editor = function () {
+		wrapper.onlyoffice.open_id += 1;
 		if (wrapper.onlyoffice.editor) {
 			try {
 				wrapper.onlyoffice.editor.destroyEditor();
@@ -137,6 +138,11 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 	};
 
 	wrapper.onlyoffice.open_editor = function (data) {
+		if (wrapper.onlyoffice.editor) {
+			wrapper.onlyoffice.close_editor();
+		}
+		wrapper.onlyoffice.open_id += 1;
+		const open_id = wrapper.onlyoffice.open_id;
 		const config = data.config;
 		config.events = {
 			onAppReady: function () {
@@ -163,14 +169,16 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		};
 		config.width = "100%";
 		config.height = "100%";
-		if (wrapper.onlyoffice.editor) {
-			wrapper.onlyoffice.close_editor();
-		}
+		wrapper.onlyoffice.reset_placeholder();
 		page.set_title(config.document.title || __("Document Workspace"));
 		wrapper.onlyoffice.editor_wrapper.show();
 		wrapper.onlyoffice
 			.load_api_script(data.api_js_url)
 			.then(() => {
+				if (open_id !== wrapper.onlyoffice.open_id) {
+					// the user left the page or pressed Close while api.js was loading
+					return;
+				}
 				if (window.DocsAPI && !document.getElementById("onlyoffice-editor")) {
 					frappe.msgprint({
 						title: __("OnlyOffice Workspace"),
@@ -179,7 +187,6 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 					});
 					return;
 				}
-				wrapper.onlyoffice.reset_placeholder();
 				wrapper.onlyoffice.editor = new DocsAPI.DocEditor("onlyoffice-editor", config);
 			})
 			.catch(() => {
