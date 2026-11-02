@@ -1,0 +1,43 @@
+{
+ "actions": [],
+ "autoname": "format:{category}-{owner_slug}-{layout_id}",
+ "creation": "2026-11-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "category",
+  "owner_doctype",
+  "owner",
+  "owner_slug",
+  "layout_id",
+  "template_title",
+  "status",
+  "active_version",
+  "versions"
+ ],
+ "fields": [
+  {"fieldname": "category", "fieldtype": "Select", "label": "Category", "options": "vente\nachat\nbank\nother", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "owner_doctype", "fieldtype": "Link", "label": "Owner DocType", "options": "DocType", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "owner", "fieldtype": "Dynamic Link", "label": "Owner", "options": "owner_doctype", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "owner_slug", "fieldtype": "Data", "label": "Owner Slug", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "layout_id", "fieldtype": "Data", "label": "Layout ID", "default": "default"},
+  {"fieldname": "template_title", "fieldtype": "Data", "label": "Title"},
+  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nActive\nArchived", "default": "Draft", "in_standard_filter": 1},
+  {"fieldname": "active_version", "fieldtype": "Int", "label": "Active Version", "read_only": 1},
+  {"fieldname": "versions", "fieldtype": "Table", "label": "Versions", "options": "Document Template Version"}
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Tunisian Univer Engine",
+ "name": "Document Template",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
