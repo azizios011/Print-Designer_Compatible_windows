@@ -13,6 +13,12 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		options: "File",
 	});
 
+	wrapper.onlyoffice.set_file_picker_visible = function (visible) {
+		if (wrapper.onlyoffice.file_field && wrapper.onlyoffice.file_field.$wrapper) {
+			wrapper.onlyoffice.file_field.$wrapper.toggle(visible);
+		}
+	};
+
 	wrapper.onlyoffice.buttons = {
 		open: page.add_inner_button(__("Open"), () => {
 			const file = wrapper.onlyoffice.file_field.get_value();
@@ -70,6 +76,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		wrapper.onlyoffice.reset_placeholder();
 		wrapper.onlyoffice.editor_wrapper.hide();
 		page.set_title(__("Document Workspace"));
+		wrapper.onlyoffice.set_file_picker_visible(true);
 	};
 
 	wrapper.onlyoffice.set_fullscreen = function (on) {
@@ -218,6 +225,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		config.height = "100%";
 		wrapper.onlyoffice.reset_placeholder();
 		page.set_title(title_override || config.document.title || __("Document Workspace"));
+		wrapper.onlyoffice.set_file_picker_visible(false);
 		wrapper.onlyoffice.editor_wrapper.show();
 		wrapper.onlyoffice
 			.load_api_script(data.api_js_url)
@@ -296,6 +304,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		wrapper.onlyoffice.set_mode_ui("designer");
 		wrapper.onlyoffice.set_fullscreen(true);
 		wrapper.onlyoffice.close_editor();
+		wrapper.onlyoffice.set_file_picker_visible(false);
 
 		let template_ids = {};
 		const dialog = new frappe.ui.Dialog({

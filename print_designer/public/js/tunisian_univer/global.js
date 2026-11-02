@@ -3,7 +3,8 @@
 // "Edit in Document Workspace" button on configured Print Format forms, and
 // a print-designer route redirect (OnlyOffice formats open in the
 // workspace; upstream formats keep the upstream designer). Guards
-// everything; never throws.
+// everything; never throws. The Design/Edit buttons are hidden on NEW
+// (unsaved) documents; they appear only after the first save.
 
 (function () {
 	"use strict";
@@ -28,6 +29,9 @@
 				if (!frm || !frm.doctype || !frm.meta) {
 					return;
 				}
+				if (frm.is_new() || (frm.doc && frm.doc.__islocal)) {
+					return;
+				}
 				if (frm.doctype === "Print Format") {
 					if (frm.doc && frm.doc.onlyoffice_format) {
 						frm.remove_custom_button(__("Edit Format"));
@@ -46,11 +50,29 @@
 				frm.add_custom_button(
 					__("Design Print Format"),
 					function () {
-						frappe.set_route("onlyoffice-workspace", {
-							designer: 1,
-							doctype: frm.doctype,
-							docname: frm.doc.name,
+						var attachments = (frm.attachments && frm.attachments.get_attachments)
+							? frm.attachments.get_attachments()
+							: [];
+						var supported = [
+							"xlsx", "docx", "pptx", "pdf", "doc", "odt", "rtf",
+							"txt", "xls", "ods", "csv", "ppt", "odp",
+						];
+						var pick = null;
+						(attachments || []).forEach(function (a) {
+							var ext = ((a.file_url || "").split("?")[0].split(".").pop() || "").toLowerCase();
+							if (!pick && supported.indexOf(ext) !== -1) {
+								pick = a;
+							}
 						});
+						if (!pick) {
+							frappe.msgprint({
+								title: __("OnlyOffice Workspace"),
+								message: __("Attach a document (xlsx, docx, pdf…) to this record first, then open the editor here."),
+								indicator: "orange",
+							});
+							return;
+						}
+						frappe.set_route("onlyoffice-workspace", { file: pick.name });
 					},
 					__("Print")
 				);
