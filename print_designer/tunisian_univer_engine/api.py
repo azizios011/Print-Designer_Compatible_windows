@@ -14,12 +14,12 @@ MAX_PDF_PAGES = 12
 
 
 def _get_settings() -> tuple[str, str, str]:
-	settings = frappe.get_single("Univer Extraction Settings")
+	settings = frappe.get_single("AI Settings")
 	api_key = settings.get_password("api_key")
 	if not api_key:
-		frappe.throw("No API key configured. Set one in Univer Extraction Settings.")
+		frappe.throw("No API key configured. Set one in AI Settings.")
 	if not settings.model:
-		frappe.throw("No model selected in Univer Extraction Settings. Click 'Refresh Models List' and choose one.")
+		frappe.throw("No model selected in AI Settings. Click 'Refresh Models List' and choose one.")
 	return settings.provider, api_key, settings.model
 
 
