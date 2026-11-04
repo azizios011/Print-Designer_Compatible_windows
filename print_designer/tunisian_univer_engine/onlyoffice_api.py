@@ -73,7 +73,7 @@ def check_connection() -> dict:
 
 
 @frappe.whitelist(methods=["GET"])
-def get_editor_config(file: str, mode: str = "edit") -> dict:
+def get_editor_config(file: str, mode: str = "edit", preview: int = 0) -> dict:
 	file_doc = frappe.get_doc("File", file)
 	file_doc.check_permission("read")
 	ext = (file_doc.file_name or "").rsplit(".", 1)[-1].lower()
@@ -81,7 +81,11 @@ def get_editor_config(file: str, mode: str = "edit") -> dict:
 		frappe.throw(_("Unsupported file type."))
 	document_type, can_edit = FILE_TYPES[ext]
 	settings = get_settings()
-	mode = "edit" if (mode == "edit" and can_edit and file_doc.has_permission("write")) else "view"
+	if preview:
+		# the attachment preview panel is strictly read-only: no callbackUrl
+		mode = "view"
+	else:
+		mode = "edit" if (mode == "edit" and can_edit and file_doc.has_permission("write")) else "view"
 
 	# download_url and callbackUrl are fetched by the DOCUMENT SERVER, so they
 	# must point at Frappe via frappe_internal_url (internal_url would make the
@@ -104,6 +108,15 @@ def get_editor_config(file: str, mode: str = "edit") -> dict:
 		"user": {"id": frappe.session.user, "name": frappe.utils.get_fullname(frappe.session.user)},
 		"customization": {"forcesave": True},
 	}
+	if preview:
+		# compact read-only viewer chrome for the preview panel; unknown keys
+		# are ignored by the Document Server, and forcesave stays out
+		editor_config["customization"] = {
+			"compactHeader": True,
+			"compactToolbar": True,
+			"hideRightMenu": True,
+			"toolbarHideFileName": True,
+		}
 	if mode == "edit":
 		editor_config["callbackUrl"] = "{0}.save_callback?{1}".format(
 			api_base,
@@ -117,6 +130,10 @@ def get_editor_config(file: str, mode: str = "edit") -> dict:
 			),
 		)
 
+	permissions = {"edit": mode == "edit", "download": True, "print": True}
+	if preview:
+		permissions = {"edit": False, "comment": False, "download": True, "print": True}
+
 	config = {
 		"documentType": document_type,
 		"type": "desktop",
@@ -125,7 +142,7 @@ def get_editor_config(file: str, mode: str = "edit") -> dict:
 			"title": file_doc.file_name,
 			"key": document_key(file_doc),
 			"url": download_url,
-			"permissions": {"edit": mode == "edit", "download": True, "print": True},
+			"permissions": permissions,
 		},
 		"editorConfig": editor_config,
 	}
