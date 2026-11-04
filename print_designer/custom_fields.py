@@ -55,6 +55,10 @@ CUSTOM_FIELDS = {
 			"fieldname": "print_designer_template_app",
 			"fieldtype": "Select",
 			"label": "Print Designer Template Location",
+			# static options must include the default: the form view replaces
+			# them with the installed apps list (print_format.js), but frappe
+			# validates Select defaults against options at sync time
+			"options": "print_designer",
 			"default": "print_designer",
 			"insert_after": "standard",
 		},
