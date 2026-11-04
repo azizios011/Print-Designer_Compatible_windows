@@ -46,21 +46,26 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 	};
 
 	wrapper.onlyoffice.exit_button = page.add_inner_button(__("Exit"), () => {
-		wrapper.onlyoffice.set_fullscreen(false);
-		if (wrapper.onlyoffice.mode === "print_format" && wrapper.onlyoffice.print_format) {
-			frappe.set_route("Form", "Print Format", wrapper.onlyoffice.print_format);
-		} else {
-			window.history.back();
-		}
+		wrapper.onlyoffice.leave();
 	});
 	$(wrapper.onlyoffice.exit_button).toggle(false);
 
+	// full-screen overlay: a slim bar with the title and Exit on top, the editor below it
 	wrapper.onlyoffice.editor_wrapper = $(
-		'<div class="onlyoffice-editor-wrapper" style="display: none; height: calc(100vh - 150px); min-height: 400px;"></div>'
+		'<div class="onlyoffice-editor-wrapper" style="display: none;">' +
+			'<div class="tu-oo-bar">' +
+				'<span class="tu-oo-title"></span>' +
+				'<button class="btn btn-default btn-sm tu-oo-exit">' + __("Exit") + "</button>" +
+			"</div>" +
+			'<div class="tu-oo-body"></div>' +
+		"</div>"
 	).appendTo(page.main);
+	wrapper.onlyoffice.editor_wrapper.find(".tu-oo-exit").on("click", function () {
+		wrapper.onlyoffice.leave();
+	});
 
 	wrapper.onlyoffice.reset_placeholder = function () {
-		wrapper.onlyoffice.editor_wrapper.html('<div id="onlyoffice-editor"></div>');
+		wrapper.onlyoffice.editor_wrapper.find(".tu-oo-body").html('<div id="onlyoffice-editor"></div>');
 	};
 
 	wrapper.onlyoffice.close_editor = function () {
@@ -77,21 +82,34 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		wrapper.onlyoffice.editor_wrapper.hide();
 		page.set_title(__("Document Workspace"));
 		wrapper.onlyoffice.set_file_picker_visible(true);
+		if (wrapper.onlyoffice.mode === "file") {
+			wrapper.onlyoffice.set_fullscreen(false);
+		}
 	};
 
 	wrapper.onlyoffice.set_fullscreen = function (on) {
 		const style_id = "tu-fullscreen-style";
-		if (!document.getElementById(style_id)) {
-			const style = document.createElement("style");
+		let style = document.getElementById(style_id);
+		if (!style) {
+			style = document.createElement("style");
 			style.id = style_id;
-			style.textContent =
-				"body.tu-fullscreen .body-sidebar-container { display: none !important; }" +
-				"body.tu-fullscreen .sidebar-toggle-btn { display: none !important; }" +
-				"body.tu-fullscreen .navbar { display: none !important; }" +
-				"body.tu-fullscreen .page-toolbar { display: none !important; }" +
-				"body.tu-fullscreen .onlyoffice-editor-wrapper { height: calc(100vh - 120px) !important; }";
 			document.head.appendChild(style);
 		}
+		// rewritten on every call so a hot reload always picks up the current rules
+		style.textContent =
+			"body.tu-fullscreen .body-sidebar-container, " +
+			"body.tu-fullscreen .sidebar-toggle-btn, " +
+			"body.tu-fullscreen .navbar, " +
+			"body.tu-fullscreen .page-head, " +
+			"body.tu-fullscreen .page-toolbar { display: none !important; }" +
+			"body.tu-fullscreen .onlyoffice-editor-wrapper { position: fixed !important; top: 0; left: 0;" +
+			" width: 100vw; height: 100vh; z-index: 1030; flex-direction: column;" +
+			" background: var(--bg-color); margin: 0; padding: 0; }" +
+			".tu-oo-bar { flex: 0 0 36px; height: 36px; display: flex; align-items: center;" +
+			" justify-content: space-between; padding: 0 12px;" +
+			" border-bottom: 1px solid var(--border-color); }" +
+			".tu-oo-body { flex: 1 1 auto; min-height: 0; }" +
+			".tu-oo-body #onlyoffice-editor, .tu-oo-body iframe { width: 100%; height: 100%; }";
 		document.body.classList.toggle("tu-fullscreen", !!on);
 	};
 
@@ -106,14 +124,20 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		}
 	};
 
-	wrapper.onlyoffice.exit = function () {
+	wrapper.onlyoffice.leave = function () {
 		wrapper.onlyoffice.set_fullscreen(false);
-		const prev = wrapper.onlyoffice.exit_route;
-		if (prev && prev.length) {
-			frappe.set_route.apply(null, prev);
+		wrapper.onlyoffice.close_editor();
+		if (wrapper.onlyoffice.mode === "print_format" && wrapper.onlyoffice.print_format) {
+			frappe.set_route("Form", "Print Format", wrapper.onlyoffice.print_format);
+		} else if (window.history.length > 1) {
+			window.history.back();
 		} else {
 			frappe.set_route();
 		}
+	};
+
+	wrapper.onlyoffice.exit = function () {
+		wrapper.onlyoffice.leave();
 	};
 
 	wrapper.onlyoffice.load_api_script = function (api_js_url) {
@@ -168,6 +192,10 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 						message: __("Could not load the editor configuration."),
 						indicator: "red",
 					});
+					if (wrapper.onlyoffice.mode === "file") {
+						wrapper.onlyoffice.set_fullscreen(false);
+						wrapper.onlyoffice.close_editor();
+					}
 					return;
 				}
 				wrapper.onlyoffice.open_editor(data, title_override);
@@ -187,6 +215,10 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 					message: detail,
 					indicator: "red",
 				});
+				if (wrapper.onlyoffice.mode === "file") {
+					wrapper.onlyoffice.set_fullscreen(false);
+					wrapper.onlyoffice.close_editor();
+				}
 			},
 		});
 	};
@@ -224,9 +256,12 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 		config.width = "100%";
 		config.height = "100%";
 		wrapper.onlyoffice.reset_placeholder();
-		page.set_title(title_override || config.document.title || __("Document Workspace"));
+		const title = title_override || config.document.title || __("Document Workspace");
+		page.set_title(title);
+		wrapper.onlyoffice.editor_wrapper.find(".tu-oo-title").text(title);
 		wrapper.onlyoffice.set_file_picker_visible(false);
-		wrapper.onlyoffice.editor_wrapper.show();
+		wrapper.onlyoffice.set_fullscreen(true);
+		wrapper.onlyoffice.editor_wrapper.css("display", "flex");
 		wrapper.onlyoffice
 			.load_api_script(data.api_js_url)
 			.then(() => {
@@ -240,6 +275,7 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 						message: __("Editor container missing"),
 						indicator: "red",
 					});
+					wrapper.onlyoffice.close_editor();
 					return;
 				}
 				wrapper.onlyoffice.editor = new DocsAPI.DocEditor("onlyoffice-editor", config);
@@ -518,7 +554,7 @@ frappe.pages["onlyoffice-workspace"].on_page_show = function (wrapper) {
 	} else if (file) {
 		wrapper.onlyoffice.mode = "file";
 		wrapper.onlyoffice.set_mode_ui("file");
-		wrapper.onlyoffice.set_fullscreen(false);
+		wrapper.onlyoffice.set_fullscreen(true);
 		wrapper.onlyoffice.open_file(file);
 	} else {
 		wrapper.onlyoffice.mode = "file";
