@@ -184,6 +184,8 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 			type: "GET",
 			method: "print_designer.tunisian_univer_engine.onlyoffice_api.get_editor_config",
 			args: { file: file, mode: "edit" },
+			// the error handler below shows exactly one message
+			silent: true,
 			callback: function (r) {
 				const data = r.message;
 				if (!data || !data.config) {
@@ -210,11 +212,19 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 				} catch (error) {
 					// keep the generic message
 				}
-				frappe.msgprint({
+				const not_configured = (detail || "").indexOf("OnlyOffice Settings") !== -1;
+				const options = {
 					title: __("OnlyOffice Workspace"),
 					message: detail,
-					indicator: "red",
-				});
+					indicator: not_configured ? "orange" : "red",
+				};
+				if (not_configured) {
+					options.primary_action = {
+						label: __("Open OnlyOffice Settings"),
+						action: () => frappe.set_route("Form", "OnlyOffice Settings"),
+					};
+				}
+				frappe.msgprint(options);
 				if (wrapper.onlyoffice.mode === "file") {
 					wrapper.onlyoffice.set_fullscreen(false);
 					wrapper.onlyoffice.close_editor();
@@ -300,6 +310,8 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 			type: "GET",
 			method: "print_designer.tunisian_univer_engine.onlyoffice_api.get_print_format_info",
 			args: { print_format: name },
+			// the error handler below shows exactly one message
+			silent: true,
 			callback: function (r) {
 				const info = r.message;
 				if (!info || !info.doc_type) {
@@ -475,6 +487,8 @@ frappe.pages["onlyoffice-workspace"].on_page_load = function (wrapper) {
 						document_format: values.document_format,
 						template_id: template_ids[values.template] || "",
 					},
+					// the error handler below shows exactly one message
+					silent: true,
 					callback: function (r) {
 						dialog.hide();
 						frappe.set_route("onlyoffice-workspace", { print_format: r.message.print_format });
