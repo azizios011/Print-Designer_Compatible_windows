@@ -270,6 +270,9 @@
 				type: "GET",
 				method: "print_designer.tunisian_univer_engine.onlyoffice_api.get_editor_config",
 				args: { file: attachment.name, mode: "view", preview: 1 },
+				// silent: the framework would msgprint server errors itself;
+				// failures here must stay invisible (the original preview stays)
+				silent: true,
 				callback: function (r) {
 					safe(function () {
 						var data = r && r.message;
