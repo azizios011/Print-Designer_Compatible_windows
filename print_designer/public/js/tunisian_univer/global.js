@@ -1,13 +1,14 @@
 // Global OnlyOffice workspace integration, loaded via app_include_js.
-// Plain IIFE: a "Design Print Format" button on every create-able form, an
+// Plain IIFE: three designer buttons (OnlyOffice workspace, GenOffice PDF
+// editor, upstream Print Designer) on every create-able form, an
 // "Edit in Document Workspace" button on configured Print Format forms, a
 // print-designer route redirect (OnlyOffice formats open in the
-// workspace; upstream formats keep the upstream designer), and an
-// attachment preview override (documents render in view mode with the
-// Document Server in the form's right preview panel; on any failure the
-// original browser iframe stays). Guards everything; never throws. The
-// Design/Edit buttons are hidden on NEW (unsaved) documents; they appear
-// only after the first save.
+// workspace; upstream formats keep the upstream designer; ?upstream=1
+// bypasses the redirect entirely), and an attachment preview override
+// (documents render in view mode with the Document Server in the form's
+// right preview panel; on any failure the original browser iframe stays).
+// Guards everything; never throws. The Design/Edit buttons are hidden on
+// NEW (unsaved) documents; they appear only after the first save.
 
 (function () {
 	"use strict";
@@ -50,23 +51,28 @@
 				if (!frappe.model.can_create("Print Format")) {
 					return;
 				}
+				var get_attachments = function () {
+					return (frm.attachments && frm.attachments.get_attachments)
+						? frm.attachments.get_attachments()
+						: [];
+				};
+				var pick_attachment = function (exts) {
+					var pick = null;
+					get_attachments().forEach(function (a) {
+						var ext = ((a.file_url || "").split("?")[0].split(".").pop() || "").toLowerCase();
+						if (!pick && exts.indexOf(ext) !== -1) {
+							pick = a;
+						}
+					});
+					return pick;
+				};
 				frm.add_custom_button(
-					__("Design Print Format"),
+					__("OnlyOffice"),
 					function () {
-						var attachments = (frm.attachments && frm.attachments.get_attachments)
-							? frm.attachments.get_attachments()
-							: [];
-						var supported = [
+						var pick = pick_attachment([
 							"xlsx", "docx", "pptx", "pdf", "doc", "odt", "rtf",
 							"txt", "xls", "ods", "csv", "ppt", "odp",
-						];
-						var pick = null;
-						(attachments || []).forEach(function (a) {
-							var ext = ((a.file_url || "").split("?")[0].split(".").pop() || "").toLowerCase();
-							if (!pick && supported.indexOf(ext) !== -1) {
-								pick = a;
-							}
-						});
+						]);
 						if (!pick) {
 							frappe.msgprint({
 								title: __("OnlyOffice Workspace"),
@@ -76,6 +82,35 @@
 							return;
 						}
 						frappe.set_route("onlyoffice-workspace", { file: pick.name });
+					},
+					__("Print")
+				);
+				frm.add_custom_button(
+					__("GenOffice"),
+					function () {
+						var pick = pick_attachment(["pdf"]);
+						if (!pick) {
+							frappe.msgprint({
+								title: __("GenOffice"),
+								message: __("Attach a PDF first; the GenOffice editor opens PDFs only for now."),
+								indicator: "orange",
+							});
+							return;
+						}
+						frappe.set_route("pdf-editor", { file: pick.name });
+					},
+					__("Print")
+				);
+				frm.add_custom_button(
+					__("Print Designer"),
+					function () {
+						// the upstream designer: ?upstream=1 bypasses the
+						// OnlyOffice redirect; route options pre-fill its
+						// "Create or Edit Print Format" doctype
+						frappe.set_route("print-designer", {
+							doctype: frm.doctype,
+							upstream: 1,
+						});
 					},
 					__("Print")
 				);
@@ -98,16 +133,26 @@
 			return true;
 		}
 		var original_render_page = frappe.router.render_page;
+		var has_upstream_bypass = function () {
+			// the Print Designer form button routes here with ?upstream=1 to
+			// reach the upstream designer instead of the workspace
+			try {
+				return new URLSearchParams(window.location.search).get("upstream") === "1";
+			} catch (error) {
+				return false;
+			}
+		};
 		frappe.router.render_page = function () {
 			var route = this.current_route || [];
 			var me = this;
-			if (route[0] !== "print-designer") {
+			if (route[0] !== "print-designer" || has_upstream_bypass()) {
 				return original_render_page.apply(this, arguments);
 			}
 			var name = route.slice(1).join("/");
 			if (!name) {
 				// bare print-designer route: the workspace designer, with the
 				// doctype coming from the query (route options) when present.
+				// ?upstream=1 skips this whole redirect (handled above).
 				// replace_route makes the browser forget the print-designer
 				// entry (the router resets the flags after set_route).
 				safe(function () {
