@@ -67,6 +67,18 @@ async function readBytes(path: string): Promise<Uint8Array> {
   throw new Error(`Unknown document path: ${path}`)
 }
 
+/** Single-entry cache: the renderer loads a document through the 8 MB
+ * readFileChunk loop (genoffice#2366), which must not re-download the whole
+ * Frappe file for every slice. Invalidated/refreshed by writeBack. */
+let lastRead: { path: string; bytes: Uint8Array } | null = null
+
+async function readBytesCached(path: string): Promise<Uint8Array> {
+  if (lastRead?.path === path) return lastRead.bytes
+  const bytes = await readBytes(path)
+  lastRead = { path, bytes }
+  return bytes
+}
+
 async function writeBack(path: string, bytes: Uint8Array): Promise<void> {
   const frappe = parseFrappePath(path)
   if (frappe) {
@@ -75,10 +87,12 @@ async function writeBack(path: string, bytes: Uint8Array): Promise<void> {
       fileName: frappe.name,
       contentBase64: toBase64(bytes),
     })
+    lastRead = { path, bytes }
     return
   }
   if (vfsHas(path)) {
     vfsPut(path, bytes)
+    lastRead = { path, bytes }
     return
   }
   throw new Error(`Cannot write to path: ${path}`)
@@ -266,13 +280,13 @@ export const pdfApi: PdfApi = {
   },
 
   async readFile(path) {
-    const bytes = await readBytes(path)
+    const bytes = await readBytesCached(path)
     // hand the caller its own copy: pdf.js transfers the buffer to its worker
     return bytes.slice().buffer
   },
 
   async readFileChunk(path, start, end) {
-    const bytes = await readBytes(path)
+    const bytes = await readBytesCached(path)
     return { data: bytes.slice(start, end), fileSize: bytes.length }
   },
 
