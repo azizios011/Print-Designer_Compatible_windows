@@ -1,0 +1,14 @@
+{
+  "name": "@genoffice/i18n",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal typed i18n core shared by the editors bundled into Print Designer (vendored from GenOffice packages/i18n, languages trimmed to en/fr/ar)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
