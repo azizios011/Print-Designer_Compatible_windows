@@ -194,3 +194,7 @@ cypress/videos
 
 # JetBrains IDEs
 .idea/
+
+# print_designer editors (Vite sources live in print_designer/editors/, build output not committed)
+print_designer/editors/node_modules/
+print_designer/public/editors/
