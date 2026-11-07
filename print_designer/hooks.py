@@ -14,6 +14,10 @@ app_license = "AGPLv3"
 # app_include_js = ""
 app_include_js = "/assets/print_designer/js/tunisian_univer/global.js"
 
+# Bundled editors (print_designer/editors/) are built by Vite after Frappe's
+# regular asset build; see print_designer/build.py
+after_build = "print_designer.build.after_build"
+
 
 # include js, css files in header of web template
 # web_include_css = "/assets/print_designer/css/print_designer.css"

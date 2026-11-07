@@ -1,0 +1,14 @@
+{
+  "name": "print_designer_editors",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yarn workspace hosting the editors bundled into Print Designer (print_designer/public/editors). Shared source packages live in packages/.",
+  "license": "AGPL-3.0-or-later",
+  "workspaces": [
+    "packages/*",
+    "pdf"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
