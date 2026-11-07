@@ -1,0 +1,26 @@
+{
+  "name": "@print_designer/editor-pdf",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "PDF editor bundled into Print Designer (renderer vendored from GenOffice apps/pdf; the Electron main process is replaced by a browser adapter + Frappe File APIs)",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@genoffice/i18n": "*",
+    "@genoffice/ui": "*",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vite-plugin-static-copy": "^3.0.0"
+  }
+}
