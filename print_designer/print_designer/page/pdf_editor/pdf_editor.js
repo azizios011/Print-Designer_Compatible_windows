@@ -39,14 +39,6 @@ frappe.pages["pdf-editor"].on_page_load = function (wrapper) {
 	function openFile(file) {
 		empty.hide();
 		holder.show();
-		if (iframe.attr("src")) {
-			// same page, different file: reload the editor with the new ?file=
-			const url = new URL(window.location.href);
-			url.searchParams.set("file", file);
-			window.location.href = url.toString();
-			return;
-		}
-		iframe.attr("src", "/assets/print_designer/editors/pdf/index.html");
 		initPayload = {
 			type: "pdf-editor-init",
 			file: file,
@@ -54,6 +46,10 @@ frappe.pages["pdf-editor"].on_page_load = function (wrapper) {
 			csrfToken: frappe.csrf_token,
 			fullName: frappe.user_info(frappe.session.user).fullname,
 		};
+		// the editor signals pdf-editor-ready on every boot (also after a
+		// generated document replaces the current one via a cache-busted reload)
+		const src = "/assets/print_designer/editors/pdf/index.html";
+		iframe.attr("src", iframe.attr("src") ? src + "?r=" + Date.now() : src);
 	}
 
 	window.addEventListener("message", (ev) => {
