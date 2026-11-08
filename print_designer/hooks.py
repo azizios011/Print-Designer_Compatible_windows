@@ -12,7 +12,7 @@ app_license = "AGPLv3"
 
 # include js, css files in header of desk.html
 # app_include_js = ""
-app_include_js = "/assets/print_designer/js/tunisian_univer/global.js"
+app_include_js = "global.bundle.js"
 
 # Bundled editors (print_designer/editors/) are built by Vite after Frappe's
 # regular asset build; see print_designer/build.py
