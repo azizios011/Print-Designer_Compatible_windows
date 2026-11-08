@@ -5,7 +5,8 @@
 // print-designer route redirect (OnlyOffice formats open in the
 // workspace; upstream formats keep the upstream designer; ?upstream=1
 // bypasses the redirect entirely), and an attachment preview override
-// (documents render in view mode with the Document Server in the form's
+// (PDF attachments preview in the GenOffice editor; other office documents
+// render in view mode with the OnlyOffice Document Server in the form's
 // right preview panel; on any failure the original browser iframe stays).
 // Guards everything; never throws. The Design/Edit buttons are hidden on
 // NEW (unsaved) documents; they appear only after the first save.
@@ -225,11 +226,94 @@
 		}
 		Attachments.prototype.__tu_preview_installed = true;
 
-		// file types rendered by the Document Server in the preview panel;
+		// file types rendered by the OnlyOffice Document Server in the preview
+		// panel; PDFs go to the GenOffice editor instead (it opens PDFs only);
 		// images, csv and everything else keep the original preview
 		var preview_extensions = [
-			"pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "odt", "ods", "odp", "rtf",
+			"docx", "doc", "xlsx", "xls", "pptx", "ppt", "odt", "ods", "odp", "rtf",
 		];
+
+		var GENOFFICE_EDITOR_URL = "/assets/print_designer/editors/pdf/index.html";
+
+		// one listener serves every preview iframe: the editor build posts
+		// pdf-editor-ready on boot and gets the File docname + CSRF token
+		var install_genoffice_listener = function () {
+			if (window.__tu_genoffice_preview_listener) {
+				return;
+			}
+			window.__tu_genoffice_preview_listener = true;
+			window.addEventListener("message", function (event) {
+				safe(function () {
+					if (!event.data || event.data.type !== "pdf-editor-ready") {
+						return;
+					}
+					if (event.origin !== window.location.origin) {
+						return;
+					}
+					var frame = event.source ? event.source.frameElement : null;
+					if (!frame || !document.body.contains(frame)) {
+						return;
+					}
+					if (!frame.classList.contains("tu-genoffice-preview")) {
+						return;
+					}
+					var file = frame.dataset.tuFile;
+					if (!file) {
+						return;
+					}
+					event.source.postMessage(
+						{
+							type: "pdf-editor-init",
+							file: file,
+							lang: frappe.boot.lang || "en",
+							csrfToken: frappe.csrf_token,
+							fullName: frappe.user_info(frappe.session.user).fullname,
+						},
+						window.location.origin
+					);
+				});
+			});
+		};
+
+		var open_genoffice_preview = function (attachments, attachment) {
+			if (!attachment.name) {
+				console.warn("tu-preview: attachment has no File name", attachment);
+				return;
+			}
+			var body = attachments.attachment_preview
+				? attachments.attachment_preview.find(".attachment-preview-body")
+				: [];
+			if (!body.length) {
+				return;
+			}
+			var request_id = attachments.attachment_preview_request_id;
+			var original_html = body.html();
+			destroy_editor(attachments);
+			install_genoffice_listener();
+			body.html(
+				'<iframe class="tu-genoffice-preview" src="' + GENOFFICE_EDITOR_URL + '" ' +
+				'data-tu-file="' + attachment.name + '" ' +
+				'title="GenOffice" style="width:100%;height:100%;border:0"></iframe>'
+			);
+			var iframe = body.find("iframe.tu-genoffice-preview")[0];
+			iframe.addEventListener("load", function () {
+				safe(function () {
+					// if the editors build is missing, frappe serves an error page
+					// inside the frame: it has no #root — restore the original
+					// preview (the plain pdf iframe) instead of a dead editor
+					var doc = iframe.contentDocument;
+					if (doc && doc.getElementById("root")) {
+						return;
+					}
+					if (
+						attachments.attachment_preview_request_id === request_id &&
+						document.body.contains(iframe)
+					) {
+						body.html(original_html);
+					}
+				});
+			});
+		};
 
 		var get_extension = function (file_name) {
 			var name = (file_name || "").split("?")[0].toLowerCase();
@@ -296,8 +380,14 @@
 			return !body.length || !document.body.contains(body[0]);
 		};
 
-		var open_onlyoffice_preview = function (attachments, attachment) {
+		var open_preview = function (attachments, attachment) {
 			var extension = get_extension(attachment && attachment.file_name);
+			if (extension === "pdf") {
+				// the GenOffice editor previews PDFs (falls back to the original
+				// pdf iframe when the editors build is missing)
+				open_genoffice_preview(attachments, attachment);
+				return;
+			}
 			if (preview_extensions.indexOf(extension) === -1) {
 				// images, csv and other types keep the original preview
 				return;
@@ -374,7 +464,7 @@
 			var result = original_show.apply(this, arguments);
 			var me = this;
 			safe(function () {
-				open_onlyoffice_preview(me, attachment);
+				open_preview(me, attachment);
 			});
 			return result;
 		};
