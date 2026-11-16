@@ -46,6 +46,8 @@ frappe.pages["sheets-editor"].on_page_load = function (wrapper) {
 			lang: frappe.boot.lang || "en",
 			csrfToken: frappe.csrf_token,
 			fullName: frappe.user_info(frappe.session.user).fullname,
+			// integration hook: /app/sheets-editor?file=...&readonly=1
+			readonly: params().get("readonly") === "1",
 		};
 		// the editor signals sheets-editor-ready on every boot (also after a
 		// save-driven session swap reloads the workbook in place)

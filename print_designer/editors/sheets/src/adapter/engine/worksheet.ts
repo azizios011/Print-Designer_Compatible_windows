@@ -599,6 +599,7 @@ function parseSheetData(worksheetXml: string, sheet: ParsedSheet, sharedStrings:
       if (cell.arrayRef !== undefined) record.arrayRef = cell.arrayRef
       if (cell.styleIndex !== undefined) record.styleIndex = cell.styleIndex
       if (cell.rich !== undefined) record.rich = cell.rich
+      if (cell.sharedFormulaSi !== undefined) record.sharedFormulaSi = cell.sharedFormulaSi
       row.cells.set(cell.column, record)
       sheet.storedCellCount += 1
       if (cell.value !== null || cell.formula !== undefined) {

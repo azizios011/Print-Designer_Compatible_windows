@@ -485,12 +485,14 @@ export const sheetsApi: DesktopApi = {
     selectConsumed = true
     const { file: fileParam, lang } = await bootstrap()
     if (!fileParam) return null
+    const boot = await bootstrap()
     const data = await fetchFrappeFile(fileParam)
     if (!/\.(xlsx|xlsm)$/i.test(data.name)) {
       throw new Error('The spreadsheet editor can only open .xlsx and .xlsm files')
     }
     const bytes = fromBase64(data.contentBase64)
     const parsed = await parseFromBytes(bytes, data.name, lang)
+    if (boot.readonly) parsed.file.readOnly = true
     session = {
       file: parsed.file,
       parsed,
@@ -798,6 +800,9 @@ export async function exportWorkbookBytes(): Promise<Uint8Array | null> {
 
 declare global {
   interface Window {
+    // same shape renderer/env.d.ts declares; re-stated here so the adapter
+    // file set compiles standalone
+    desktopApi: DesktopApi
     sheetsEditorApi: {
       exportWorkbookBytes: typeof exportWorkbookBytes
       currentFile: () => { docname: string; fileName: string } | null

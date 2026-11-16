@@ -251,7 +251,7 @@ export async function parseWorkbook(
       parseDrawing(drawingXml, sheet.sheetId, dRelById, entries, visuals, () => `visual-${visualSeq++}`)
     }
 
-    sheetMetas.push(sheetMetadata(sheet, decl.position))
+    sheetMetas.push(sheetMetadata(sheet))
   }
 
   if (sheetMetas.length === 0) throw new WorkbookParseError('Workbook contains no readable worksheets.')
@@ -346,11 +346,7 @@ function resolveSharedFormulas(sheet: ParsedSheet): void {
 }
 
 /** Worksheet metadata in the wire shape. */
-function sheetMetadata(sheet: ParsedSheet, index: number): WorkbookFile['sheets'][number] {
-  const firstCell = sheet.rows.size > 0 ? 1 : 1
-  void firstCell
-  const printAreaNames = new Map<string, string>()
-  void printAreaNames
+function sheetMetadata(sheet: ParsedSheet): WorkbookFile['sheets'][number] {
   return {
     id: sheet.sheetId,
     name: sheet.name,
@@ -394,7 +390,6 @@ function sheetMetadata(sheet: ParsedSheet, index: number): WorkbookFile['sheets'
     sparklines: [],
     cellImages: [],
   }
-  void index
 }
 
 /** notes: xl/commentsN.xml → sheet.comments */

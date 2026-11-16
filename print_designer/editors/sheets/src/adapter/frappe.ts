@@ -23,6 +23,8 @@ export interface Bootstrap {
   lang: Lang
   csrfToken: string
   fullName: string
+  /** open the workbook read-only (the host page passes ?readonly=1) */
+  readonly: boolean
 }
 
 let boot: Bootstrap | null = null
@@ -33,7 +35,7 @@ export function bootstrap(): Promise<Bootstrap> {
   if (!handshakePromise) {
     handshakePromise = new Promise<Bootstrap>((resolve) => {
       const fallback = window.setTimeout(() => {
-        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '' })
+        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '', readonly: false })
       }, 5000)
       const onMessage = (ev: MessageEvent) => {
         if (ev.source !== window.parent) return
@@ -43,6 +45,7 @@ export function bootstrap(): Promise<Bootstrap> {
           lang: string
           csrfToken: string
           fullName: string
+          readonly: string | boolean
         }>
         if (data?.type !== 'sheets-editor-init') return
         window.clearTimeout(fallback)
@@ -52,6 +55,7 @@ export function bootstrap(): Promise<Bootstrap> {
           lang: normalizeLang(data.lang),
           csrfToken: typeof data.csrfToken === 'string' ? data.csrfToken : '',
           fullName: typeof data.fullName === 'string' ? data.fullName : '',
+          readonly: data.readonly === true || data.readonly === '1',
         }
         resolve(boot)
       }
