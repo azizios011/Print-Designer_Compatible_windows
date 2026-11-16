@@ -92,11 +92,9 @@ export function ColorDropdown({
     // capture phase: the grid canvas stops mousedown propagation, so bubble-phase listeners never fire
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey)
-    const offChrome = window.desktopApi?.onChromePressed?.(() => setOpen(false))
     return () => {
       window.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('keydown', onKey)
-      offChrome?.()
     }
   }, [open])
   return (

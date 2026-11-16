@@ -52,3 +52,36 @@ Part 4, Transitional) XML Schema files for PresentationML and DrawingML, as
 distributed in the python-docx repository (ref/xsd), with one marked local
 amendment (see tools/ooxml-validate/README.md). They are used only by tests
 and development tooling and are not shipped in the application.
+
+──────────────────────────────────────────────────────────────────────────────
+Print Designer vendored subsets (this repository)
+──────────────────────────────────────────────────────────────────────────────
+
+The Print Designer editors vendor trimmed subsets of the GenOffice sources
+above, Apache-2.0, © Mainfunc, Inc. — see the per-package descriptions in
+editors/packages/*/package.json and editors/{pdf,sheets}/package.json, and
+editors/sheets/PORTING.md for the sheets port decisions.
+
+Vendored packages:
+
+- @genoffice/ui       (editors/packages/ui)      — shared renderer chrome
+  components; the AI components were removed. Ships the Carlito font faces
+  (packages/ui/src/fonts upstream), SIL Open Font License 1.1.
+- @genoffice/i18n     (editors/packages/i18n)    — typed i18n core; the
+  language set is trimmed to en, fr, ar.
+- @genoffice/xlsx-gateway (editors/packages/xlsx-gateway) — the xlsx write
+  gateway and workbook domain logic, verbatim except for the desktop-only
+  fs/sidecar IO (xlsx-package-io rewritten as a plan-only module, sha256 via
+  Web Crypto, csv-import-xlsx dropped).
+- @genoffice/zip-gate (editors/packages/zip-gate) — verbatim.
+- pdf/src/{renderer,shared} from apps/pdf, minus the AI layer, OCR,
+  digital-certificate signing and main-process printing.
+- sheets/src/{renderer,shared} from apps/sheets, minus the AI layer, MCP
+  bridge, screen capture, recovery copies, workbook merge, print/PDF export
+  and the Electron shell plumbing (see editors/sheets/PORTING.md).
+
+Fonts
+
+Carlito (packages/ui/src/fonts upstream, vendored to editors/packages/ui/src/
+fonts) — SIL Open Font License, Version 1.1. Carlito is the metric-compatible
+Calibri substitute the Sheets renderer measures cell text with.

@@ -388,6 +388,9 @@ function readFill(body: string): FillEntry {
 }
 
 function readBorder(body: string): BorderEntry {
+  // `body` is the INNER content of the <border> element (the caller iterates
+  // <borders><border>…</border></borders> and hands each <border>'s body —
+  // same convention readFill uses for <patternFill>/<gradientFill>)
   const entry: BorderEntry = {
     top: null,
     bottom: null,
@@ -398,10 +401,9 @@ function readBorder(body: string): BorderEntry {
     diagonalDown: false,
   }
   const border = firstElement(body, 'border')
+  // tolerate the outer-element form too (a body that still wraps <border>)
+  const source = border ? border.body : body
   const attrs = border ? readAttrs(border.tagSource) : {}
-  entry.diagonalUp = attrBool(attrs, 'diagonalUp')
-  entry.diagonalDown = attrBool(attrs, 'diagonalDown')
-  const source = border ? border.body : ''
   const edge = (name: string): { style: string | null; color: ColorRead } | null => {
     const el = firstElement(source, name)
     if (!el) return null

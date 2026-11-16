@@ -27,10 +27,11 @@ import {
 import { IUniverInstanceService } from '@univerjs/core'
 import { FormulaDataModel } from '@univerjs/preset-sheets-core'
 import { Subject, type Subscription } from 'rxjs'
-import { FILE_READ_BATCH_CELLS, MAX_SCAN_CELLS } from './ai/workbook-search'
 import { t } from './i18n/locale'
 import {
+  FILE_READ_BATCH_CELLS,
   MAX_FIND_MATCHES,
+  MAX_SCAN_CELLS,
   findSheetCellsInFile,
   sidecarFindAvailable,
   type SidecarFindQuery,

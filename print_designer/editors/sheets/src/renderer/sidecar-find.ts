@@ -13,6 +13,17 @@ import { fileToScreen } from './view-transform'
 /** Matches one Find session keeps before telling the user to narrow it. */
 export const MAX_FIND_MATCHES = 100_000
 
+/** Total cells (by scanned extent) one range-paged find_cells call may
+    cover; the sidecar path has no extent budget. (Formerly
+    ai/workbook-search.ts, which the AI cut removed.) */
+export const MAX_SCAN_CELLS = 400_000
+/** Row batches sized to stay under the sidecar's per-read cell budget. */
+export const FILE_READ_BATCH_CELLS = 18_000
+
+/** The error-literal shape every scan matches against (#REF!, #N/A, …). */
+export const ERROR_VALUE_RE =
+  /^#(?:REF!|DIV\/0!|VALUE!|NAME\?|N\/A|NUM!|NULL!|SPILL!|CALC!|FIELD!|CONNECT!|BLOCKED!|UNKNOWN!|GETTING_DATA)$/
+
 export type SidecarFindQuery = Omit<
   WorkbookFindCellsRequest,
   'sessionId' | 'sheetId' | 'resumeAt' | 'limit'

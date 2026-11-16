@@ -5,29 +5,33 @@
  */
 import { useEffect, useState } from 'react'
 
-import { isMetafileMime, metafileToDataUrl } from '@genoffice/docx-engine/metafile'
+/// Metafile mimes (EMF/WMF and their gzip-wrapped forms); same set as
+/// @genoffice/docx-engine metafile (Apache-2.0). The browser build has no
+/// EMF/WMF rasterizer, so a metafile part degrades to an empty frame.
+const EMF_MIMES = new Set(['image/emf', 'image/x-emf'])
+const WMF_MIMES = new Set(['image/wmf', 'image/x-wmf'])
+const EMZ_MIMES = new Set(['image/emz', 'image/x-emz'])
+const WMZ_MIMES = new Set(['image/wmz', 'image/x-wmz'])
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
-  return bytes
+function isMetafileMime(mime: string | undefined): boolean {
+  return (
+    mime !== undefined &&
+    (EMF_MIMES.has(mime) || WMF_MIMES.has(mime) || EMZ_MIMES.has(mime) || WMZ_MIMES.has(mime))
+  )
 }
 
-/// A workbook media part as a data URL; metafiles rasterize to PNG first.
+/// A workbook media part as a data URL; metafiles have no browser renderer.
 /// Null when the bytes cannot be rendered.
 export async function workbookMediaDataUrl(media: {
   readonly mediaType: string
   readonly base64: string
 }): Promise<string | null> {
-  if (isMetafileMime(media.mediaType)) {
-    return metafileToDataUrl(base64ToBytes(media.base64), media.mediaType)
-  }
+  if (isMetafileMime(media.mediaType)) return null
   return `data:${media.mediaType};base64,${media.base64}`
 }
 
-/// Lazily fetches a workbook image as a data URL (metafiles rasterize to PNG
-/// first). Pass an undefined sessionId to skip fetching.
+/// Lazily fetches a workbook image as a data URL (metafiles degrade to an
+/// empty frame). Pass an undefined sessionId to skip fetching.
 export function useWorkbookMediaUrl(
   sessionId: string | undefined,
   visualId: string,
