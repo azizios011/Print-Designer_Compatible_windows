@@ -64,7 +64,13 @@ frappe.pages["sheets-editor"].on_page_load = function (wrapper) {
 			// dirty-state guard: warn before leaving with unsaved edits
 			pendingEdits = data.count || 0;
 		} else if (data.type === "sheets-save") {
-			// saved (overwrite): keep the URL pointing at the same File
+			// saved: keep the URL pointing at the File that is now open
+			// (Save As creates a new File docname)
+			if (data.file) {
+				const url = new URL(window.location.href);
+				url.searchParams.set("file", data.file);
+				frappe.router.replace_state(url.pathname + url.search);
+			}
 		}
 	});
 

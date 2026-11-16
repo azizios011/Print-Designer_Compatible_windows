@@ -135,6 +135,7 @@ async function saveWorkbook(
   sessionId: string,
   edits: WorkbookSaveRequest['edits'],
   request: Omit<WorkbookSaveRequest, 'sessionId' | 'mode' | 'edits' | 'editsTransferId'>,
+  mode: 'save' | 'save-as',
 ): Promise<WorkbookSaveResult> {
   const state = requireSession(sessionId)
   const parsed = state.parsed
@@ -409,20 +410,31 @@ async function saveWorkbook(
     redactionStates: null,
     externalLinkOps: request.externalLinkOps ?? null,
   })
-  // write through the whitelisted API (overwrite in place, like the desktop)
-  await saveFrappeFile({
-    file: state.docname,
-    fileName: state.fileName,
-    contentBase64: toBase64(result.buffer),
-  })
-  // session swap: re-parse the saved bytes — new sessionId, same docname
+  // write through the whitelisted API: Save overwrites the opened File in
+  // place; Save As creates a new File attached to the same document
+  const target =
+    mode === 'save-as'
+      ? await saveFrappeFile({
+          fileName: saveAsName(request.defaultName, state.fileName),
+          contentBase64: toBase64(result.buffer),
+          attachedToDoctype: state.attachedToDoctype,
+          attachedToName: state.attachedToName,
+          isPrivate: state.isPrivate,
+        })
+      : await saveFrappeFile({
+          file: state.docname,
+          fileName: state.fileName,
+          contentBase64: toBase64(result.buffer),
+        })
+  // session swap: re-parse the saved bytes — new sessionId (and a new docname
+  // for Save As), the same swap the desktop session replacement performed
   const lang = (await bootstrap()).lang
-  const reparsed = await parseFromBytes(result.buffer, state.fileName, lang)
+  const reparsed = await parseFromBytes(result.buffer, target.name, lang)
   const next: WorkbookSession = {
     file: reparsed.file,
     parsed: reparsed,
-    fileName: state.fileName,
-    docname: state.docname,
+    fileName: target.name,
+    docname: target.docname,
     attachedToDoctype: state.attachedToDoctype,
     attachedToName: state.attachedToName,
     isPrivate: state.isPrivate,
@@ -438,6 +450,13 @@ async function saveWorkbook(
     file: reparsed.file,
     touchedEntries: [...result.touchedEntries],
   }
+}
+
+/** Save As name: the dialog suggestion, else a copy of the current name. */
+function saveAsName(defaultName: string | undefined, currentName: string): string {
+  const base = (defaultName ?? `${currentName.replace(/\.xlsx?$/i, '')} (copy)`).trim()
+  const safe = base.replace(/[\\/:*?"<>|]/g, '_')
+  return safe.toLowerCase().endsWith('.xlsx') ? safe : `${safe}.xlsx`
 }
 
 // ── the adapter ──────────────────────────────────────────────────────────────
@@ -703,11 +722,8 @@ export const sheetsApi: DesktopApi = {
   },
 
   async saveWorkbookEdits(request: WorkbookSaveRequest): Promise<WorkbookSaveResult> {
-    if (request.mode !== 'save') {
-      throw new Error('Save As is not available in the browser build yet')
-    }
     const edits = takeTransfer(request.editsTransferId, request.sessionId)
-    return saveWorkbook(request.sessionId, edits, request)
+    return saveWorkbook(request.sessionId, edits, request, request.mode)
   },
 
   async beginSaveEditsTransfer(request: WorkbookSaveEditsBegin): Promise<void> {
