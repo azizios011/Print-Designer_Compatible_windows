@@ -6,7 +6,8 @@
   "license": "AGPL-3.0-or-later",
   "workspaces": [
     "packages/*",
-    "pdf"
+    "pdf",
+    "sheets"
   ],
   "engines": {
     "node": ">=20"

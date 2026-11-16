@@ -1,0 +1,14 @@
+{
+  "name": "@genoffice/zip-gate",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "Metered-inflation zip bomb gate vendored from GenOffice packages/zip-gate: reject archives whose parts inflate past what they declare, before any caller materialises them (browser-safe: no Node builtins)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@genoffice/xlsx-gateway",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "description": "xlsx write gateway and workbook domain logic (OOXML patching, workbook DSL, pivots, charts) vendored from GenOffice packages/xlsx-gateway for the browser: no Electron, no Univer, no Node builtins (the desktop-only fs/sidecar IO was trimmed; csv-import-xlsx dropped)",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@genoffice/zip-gate": "*",
+    "jszip": "^3.10.1",
+    "numfmt": "^3.2.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

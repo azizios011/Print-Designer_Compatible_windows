@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "description": "Shared renderer UI components for the editors (vendored from GenOffice packages/ui, AI components removed); styling stays per-app via the shared class names",
+  "description": "Shared renderer UI components for the editors (vendored from GenOffice packages/ui, AI components removed); styling stays per-app via the shared class names; ships the Carlito cell fonts the sheets renderer measures with",
   "exports": {
     ".": "./src/index.ts",
     "./tokens.css": "./src/tokens.css",
@@ -15,7 +15,11 @@
     "./ribbon-collapse.css": "./src/ribbon-collapse.css",
     "./markdown.css": "./src/markdown.css",
     "./image-dialogs.css": "./src/image-dialogs.css",
-    "./image-viewer.css": "./src/image-viewer.css"
+    "./image-viewer.css": "./src/image-viewer.css",
+    "./fonts/Carlito-Regular.ttf": "./src/fonts/Carlito-Regular.ttf",
+    "./fonts/Carlito-Bold.ttf": "./src/fonts/Carlito-Bold.ttf",
+    "./fonts/Carlito-Italic.ttf": "./src/fonts/Carlito-Italic.ttf",
+    "./fonts/Carlito-BoldItalic.ttf": "./src/fonts/Carlito-BoldItalic.ttf"
   },
   "peerDependencies": {
     "react": "^19.0.0"
