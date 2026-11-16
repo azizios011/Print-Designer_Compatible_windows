@@ -2808,6 +2808,12 @@ export interface DesktopApi {
   /** shell-wide AutoSave default (see useAutoSavePref) */
   getAutoSaveDefault(): Promise<AutoSaveDefault>
   onAutoSaveDefaultChanged(handler: (value: AutoSaveDefault) => void): () => void
+  /**
+   * Is the File the host page handed over still waiting to be opened? The
+   * renderer pulls this once at boot and calls selectWorkbook when true —
+   * the same queue-pull flow the desktop shell used.
+   */
+  hasQueuedWorkbook(): Promise<boolean>
   /** open the File the host page handed over (docname); null when none */
   selectWorkbook(): Promise<WorkbookFile | null>
   readWorkbookRange(request: WorkbookRangeRequest): Promise<WorkbookRangeResult>

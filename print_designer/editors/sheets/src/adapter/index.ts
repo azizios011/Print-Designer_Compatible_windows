@@ -494,6 +494,13 @@ export const sheetsApi: DesktopApi = {
     return () => {}
   },
 
+  /** true until the handed-over File docname has been consumed by selectWorkbook */
+  async hasQueuedWorkbook(): Promise<boolean> {
+    if (selectConsumed) return false
+    const { file } = await bootstrap()
+    return file !== null
+  },
+
   /**
    * The single open entry point. The desk page hands the File docname over at
    * boot; opening it fetches the bytes through the whitelisted API and parses
