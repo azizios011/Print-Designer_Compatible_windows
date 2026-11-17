@@ -1898,78 +1898,6 @@ export interface MappedRangeRead {
 /// stay under it (just below MAX_RANGE_CELLS in shared/desktop-api.ts).
 const SIDECAR_READ_BATCH_CELLS = 90_000
 
-/// A crashed sidecar is replaced with a process that has never heard of the
-/// session ids the renderer is holding, so every read from then on fails and
-/// the grid can never load data again. Recovery is driven by the main
-/// process's explicit crash notification (see onSidecarCrashed), NOT by an
-/// error message: sheets-main and the Rust sidecar both reject an unknown
-/// session with the identical "Unknown workbook session." text that the Save
-/// swap and closeWorkbook produce on purpose, so a message match fires on
-/// ordinary saves.
-let sidecarCrashNotified = false
-
-/// Called when the main process reports the sidecar process died. Every
-/// session id this renderer holds is now unknown to the replacement process,
-/// so the next read re-opens the workbook and adopts a live one.
-export function noteSidecarCrash(): void {
-  sidecarCrashNotified = true
-}
-
-/// One recovery at a time: a crash fails every in-flight read at once, and
-/// each would otherwise re-open the file separately.
-let sessionRecoveryInFlight: Promise<boolean> | null = null
-/// Workbooks already given one automatic recovery. A second loss in the same
-/// open workbook is a real failure, not the same crash seen twice — re-opening
-/// in a loop would leave the user with a pile of dead sessions.
-const sessionRecoveryAttempted = new WeakSet<object>()
-
-/// Re-opens the workbook to get a live sidecar session and adopts its id, so
-/// reads resume instead of failing forever against a process that has never
-/// seen our session. Unsaved edits are untouched: they live in the edit
-/// journal, which is keyed by sheet rather than by session. Only the streaming
-/// memos are dropped — the new session streams the file from scratch, and
-/// leaving them would claim the windows are already loaded and keep the grid
-/// blank.
-export async function recoverSidecarSession(state: LazyWorkbookState): Promise<boolean> {
-  // The signal is consumed by the read that acts on it, so a crash noticed
-  // while no read is in flight still recovers on the next one.
-  sidecarCrashNotified = false
-  if (sessionRecoveryInFlight) return sessionRecoveryInFlight
-  if (sessionRecoveryAttempted.has(state)) return false
-  sessionRecoveryInFlight = (async () => {
-    const path = state.file.path
-    // Nothing on disk to re-open (a new or imported workbook): leave the
-    // status message, only a manual open can recover these.
-    if (!path) return false
-    // The normal open path, not the merge-source one: a crash re-open is
-    // re-opening the workbook itself, so it must adopt the file as a normal
-    // session (with the usual csv/xls import handling) rather than opening a
-    // second merge input that nothing would ever close.
-    const reopened = await window.desktopApi.reopenWorkbook(path)
-    if (!reopened) return false
-    // Only a recovery that produced a session counts: a cancelled prompt or a
-    // transient open failure leaves the next crash signal free to retry.
-    sessionRecoveryAttempted.add(state)
-    state.file = { ...state.file, sessionId: reopened.sessionId }
-    for (const timer of state.retryTimers.values()) clearTimeout(timer)
-    state.retryTimers.clear()
-    state.loadedRanges.clear()
-    state.loadingKeys.clear()
-    state.frozenStripKeys.clear()
-    state.frozenRowStripKeys.clear()
-    return true
-  })()
-  try {
-    return await sessionRecoveryInFlight
-  } catch {
-    // A failed re-open is reported by the read that triggered it; do not let
-    // the attempt block later ones.
-    return false
-  } finally {
-    sessionRecoveryInFlight = null
-  }
-}
-
 /// Reads a screen-space range, translating through the sheet's journaled
 /// structural operations. Returns null when the range is entirely
 /// journal-owned (inserted this session — nothing streams into it). A
@@ -1982,18 +1910,7 @@ export async function readSheetRangeMapped(
   screenRange: IRange,
   sheet: WorkbookFile['sheets'][number],
 ): Promise<MappedRangeRead | null> {
-  try {
-    return await readSheetRangeMappedOnce(state, sheetId, screenRange, sheet)
-  } catch (error: unknown) {
-    // Every range read in the app funnels through here, so this is the one
-    // place a crashed sidecar can be noticed. The gate is the main process's
-    // crash notification, NOT the rejection's text: a read that raced the Save
-    // swap or a closeWorkbook is rejected with the very same "Unknown workbook
-    // session." and is NOT a crash, so it must surface as an ordinary error
-    // instead of re-opening the file and orphaning a session.
-    if (!sidecarCrashNotified || !(await recoverSidecarSession(state))) throw error
-    return await readSheetRangeMappedOnce(state, sheetId, screenRange, sheet)
-  }
+  return readSheetRangeMappedOnce(state, sheetId, screenRange, sheet)
 }
 
 async function readSheetRangeMappedOnce(

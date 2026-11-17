@@ -30,13 +30,8 @@ import {
   installFindRevealFix,
   installInjectorResolutionGuard,
   installWrapMeasureLifecycle,
-  noteSidecarCrash,
 } from './univer-sync'
 import { installGridGrowth } from './grid-growth'
-import {
-  pollUntilReady,
-  runHeadlessRendererExport,
-} from '@genoffice/electron-utils/headless-export'
 import {
   commitActiveCellEditor,
   installJournalSuppressionUndoFilter,
@@ -56,14 +51,8 @@ import {
   type SheetPasswordHash,
 } from '@genoffice/xlsx-gateway/gateway/xlsx-protection-hash'
 import { applyChangePlan, planFromOps, type OpExecutorContext } from './op-executor'
-import { installSheetsMcpBridge, type McpSheetHandlers } from './mcp-bridge'
 import { renameChartRefsForSheet } from './workbook-ops'
-import {
-  proposeOperations as proposeOperationsImpl,
-  runDeterministicPlan as runDeterministicPlanImpl,
-  structuralDeleteFormulaErrorSync,
-  type PlanContext,
-} from './plan-operations'
+import { structuralDeleteFormulaErrorSync } from './plan-operations'
 import {
   registerCellFontAliases,
   untilCellFontsLoaded,
@@ -73,13 +62,7 @@ import { isNumericIdentifierText } from './cell-warning'
 import { consumePendingUndoCarry, undoStackDepth } from './undo-carry'
 import { createSaveGate, shouldRunSaveTick } from './save-scheduler'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import {
-  useAutoSavePref,
-  addTokenUsage,
-  ImageViewer,
-  type AiTokenUsageView,
-  type AiScopeQuoteData,
-} from '@genoffice/ui'
+import { useAutoSavePref, ImageViewer } from '@genoffice/ui'
 
 import {
   CellValueType,
@@ -141,21 +124,12 @@ import {
   type TableDesignContext,
 } from './table-design-actions'
 
-import {
-  AgentLoop,
-  COMPLETED_VIA_TOOLS_TEXT,
-  composeSkills,
-  withAttachedSkills,
-  type AgentImage,
-} from '@genoffice/agent-core'
-import { imageGenerationAvailable, type AiSettings } from '@genoffice/ai-provider/browser'
 import { type WorkbookOperation } from '@genoffice/xlsx-gateway/domain/workbook-dsl'
 import {
   columnLabel,
   parseAddress,
   rangeCellCount,
 } from '@genoffice/xlsx-gateway/domain/cell-address'
-import { aggregateWorkbookRange } from './ai/aggregate-range'
 import { collectCellFormulaTexts, quadraticFormulaError } from './formula-cost'
 import {
   applyChartStateEdit,
@@ -166,15 +140,11 @@ import {
 } from '@genoffice/xlsx-gateway/domain/chart-visual'
 import { InMemoryWorkbookAdapter } from '@genoffice/xlsx-gateway/domain/in-memory-workbook'
 import { cfRuleUnsaveableReason, iconSetSaveable } from '@genoffice/xlsx-gateway/gateway/xlsx-cf'
-import type { SheetRedactionState } from '@genoffice/xlsx-gateway/gateway/xlsx-redaction'
-import { statesOnScreen } from './redact-marks-shift'
 import { installLazyFindBridge } from './lazy-find'
 import { startFullLoad } from './full-load'
 import { opensInFormulaMode, workbookCellCounts } from './load-budget'
 import { installReplaceAutoSearch } from './replace-autosearch'
 import { FindReplacePanel } from './FindReplacePanel'
-import { SpellingDialog } from './SpellingDialog'
-import { spellcheckEnabled, storeSpellcheckEnabled } from './spellcheck-pref'
 import {
   installCrossHighlight,
   loadCrossHighlightPreference,
@@ -190,46 +160,10 @@ import {
 } from './outline-actions'
 import { moveOutlineEntries, shiftOutlineEntries } from './outline-model'
 import type { ApplyOutcome, ChangePlan } from '@genoffice/xlsx-gateway/domain/workbook.types'
-import { createElectronTransport } from './ai/transport'
-import {
-  MAX_READ_RANGE_CELLS,
-  type ActiveSheetInfo,
-  type FrozenSelection,
-  type SheetsSkillDeps,
-} from './ai/tools'
-import { scopeLabel, type AiChatMessage } from './ai/AiChatPanel'
-import { pruneFailedExchange } from './ai/retry-prune'
-import { parseSheetNavHref } from './ai/sheet-nav'
-import {
-  boundsToA1,
-  clampBoundsToExtent,
-  columnScopeHeaders,
-  resolveScopeChip,
-  type DataExtent,
-} from './ai/selection-scope'
-import { isSelectionDrag, type Point, type SelectionAskAnchor } from './ai/selection-ask'
-import { createAiDocument } from './ai/create-document'
-import { createWorkbookSkill } from './ai/workbook-skill'
-import { findWorkbookCells, selectWorkbookRange } from './ai/workbook-search'
-import {
-  a1RangeToTarget,
-  planTableRefresh,
-} from '@genoffice/xlsx-gateway/gateway/xlsx-connection-refresh'
-import { traceWorkbookDependents, traceWorkbookPrecedents } from './ai/formula-audit'
-import { createFilesSkill } from './ai/files-skill'
-import { createMergeSkill } from './ai/merge-skill'
-import { mergeAttachedWorkbooks } from './merge-workbooks'
-import { createSearchSkill } from './ai/search-skill'
-import { createImageSkill } from './ai/image-skill'
-import { ATTACHMENT_IMAGE_EXTS } from '../shared/desktop-api'
 import type {
-  AttachmentAddResult,
-  AttachmentMeta,
-  WorkbookConnection as QueryConnection,
   ExternalLinkOps,
   ExternalLinkRow,
   MenuAction,
-  RecoveryPromptPayload,
   WorkbookFile,
   WorkbookVisualObject,
 } from '../shared/desktop-api'
@@ -240,7 +174,6 @@ import {
   BLOCKED_COMMAND_PATTERN,
   CF_MUTATIONS,
   CF_RULE_COMMAND_PATTERN,
-  CHAT_STORAGE_KEY,
   COPY_SHEET_COMMAND,
   DEFINED_NAME_MUTATIONS,
   DV_EDIT_COMMAND_PATTERN,
@@ -256,12 +189,10 @@ import {
   MOVE_ROWS_MUTATION,
   MOVE_RANGE_MUTATION,
   NOTE_MUTATIONS,
-  PERSIST_TOOL_FIELD_MAX,
   pixelsToCharacterWidth,
   REMOVE_NUMFMT_MUTATION,
   REORDER_RANGE_MUTATION,
   ROW_COLUMN_MUTATIONS,
-  safeJsonInput,
   SET_FROZEN_MUTATION,
   SET_NUMFMT_MUTATION,
   SET_RIGHT_TO_LEFT_MUTATION,
@@ -283,28 +214,6 @@ import {
   reorderCommandRanges,
   reorderGate,
 } from './reorder-gate'
-import {
-  getActiveSheetInfo as getActiveSheetInfoImpl,
-  readCells as readCellsImpl,
-  readFormats as readFormatsImpl,
-  readSheetFeatures as readSheetFeaturesImpl,
-  type WorkbookReadContext,
-} from './ai/workbook-readers'
-import { NO_REDACTIONS, sanitizeLabel, type RedactionIndex } from './ai/redact'
-import { modelSaveAsName } from './file-naming'
-import { redactionSessionFor } from './ai/redact-load'
-import { RedactDialog } from './components/RedactDialog'
-import { installRedactMenu, type SelectionRequest } from './redact-menu'
-import { buildMark, restoreCellFill } from './redact-tint'
-import {
-  addMark,
-  clearMark,
-  hasPendingRedactionChange,
-  indexFor,
-  redactIntentFor,
-  type MarkKey,
-  type RedactDialogState,
-} from './redact-actions'
 import {
   getSourceRange as getSourceRangeImpl,
   handleCreatePivot as handleCreatePivotImpl,
@@ -332,10 +241,8 @@ import type { ChartRecommendations } from '@genoffice/xlsx-gateway/domain/chart-
 import {
   cellAtClientPoint,
   handleInsertChart as handleInsertChartImpl,
-  handleInsertEquation as handleInsertEquationImpl,
   handleInsertIcon as handleInsertIconImpl,
   handleInsertPictureFile,
-  handleInsertScreenshot,
   handleRecommendedCharts as handleRecommendedChartsImpl,
   type VisualActionContext,
 } from './visual-actions'
@@ -357,11 +264,7 @@ import { installFilterRangeOutlineSuppression } from './filter-range-outline'
 import { createSheetTabActions } from './sheet-tab-actions'
 import { installVeryHiddenSheetGuard } from './very-hidden-sheets'
 import { installFormulaBarAutosize } from './formula-bar-autosize'
-import {
-  createFunctionArgumentsHost,
-  installFxButtonHook,
-  installWorkbookPickRelay,
-} from './function-arguments-runtime'
+import { createFunctionArgumentsHost, installFxButtonHook } from './function-arguments-runtime'
 import {
   applyShowFormulasView,
   formulaViewSheets,
@@ -441,7 +344,6 @@ import {
 } from './status-bar-stats'
 import {
   applyUniverLocale,
-  hideFromAiLocale,
   insertRowsBelowLocale,
   numberAsTextAlertLocale,
 } from './univer-locales'
@@ -466,14 +368,9 @@ import {
 } from './ribbon-actions'
 import {
   handleApplyHeaderFooter as handleApplyHeaderFooterImpl,
-  handleExportPdf as handleExportPdfImpl,
   handlePageLayoutCommand as handlePageLayoutCommandImpl,
-  openPrintPreviewHost,
-  type PrintPreviewHost,
   type PageLayoutContext,
 } from './page-layout-actions'
-import { handleExportCsv as handleExportCsvImpl, type CsvExportContext } from './csv-export'
-import { effectivePageBreaks, installPageBreakPreview } from './page-break-preview'
 import { mapProtectedRanges } from './protected-ranges'
 import { handleSave as handleSaveImpl, type SaveContext, type SaveOutcome } from './save-actions'
 import {
@@ -522,24 +419,19 @@ import {
   shiftVisualForStructuralOp,
 } from './edit-journal'
 import { shiftPinnedCells } from './formula-closure'
-import { getLang, t, aiLangDirective } from './i18n/locale'
+import { getLang, t } from './i18n/locale'
 import { planStillMatches } from './lazy-plan'
 import { lastSurvivingScreenLine, netAxisDelta, screenToFile } from './view-transform'
 import { selectionFormatEquals, toSelectionFormat, type SelectionFormat } from './selection-format'
 import { ExcelShell, type SelectedShapeRibbon } from './ExcelShell'
-import { RecoveryDialog } from './RecoveryDialog'
-import { EncryptedWorkbookPasswordDialog } from './EncryptedWorkbookPasswordDialog'
-import { ChangeWorkbookPasswordDialog } from './ChangeWorkbookPasswordDialog'
 import { ToastHost } from './toast'
 import { showToast } from './toast-bus'
 import { AdvancedFilterDialog, type AdvancedFilterColumn } from './AdvancedFilterDialog'
-import { EquationDialog } from './EquationDialog'
 import { IconsDialog } from './IconsDialog'
 import { RecommendedChartsDialog } from './RecommendedChartsDialog'
 import { installPictureTransfer } from './picture-paste'
 import { installCellImagePreview } from './cell-image-preview'
 import { installWheelZoomSteps } from './wheel-zoom'
-import { ScreenshotDialog } from './ScreenshotDialog'
 import { SymbolDialog } from './SymbolDialog'
 import {
   calculateNow,
@@ -564,6 +456,8 @@ import { externalFileTarget } from './external-link-target'
 import { applyExternalLinkValues, journalExternalLinkLiterals } from './univer-sync'
 import { TimelineFieldPicker, TimelinePanels, type TimelineUiState } from './TimelinePanel'
 import type { DefinedNameAction, DefinedNameRow } from './NameManagerDialog'
+import { readCells, selectWorkbookRange, type WorkbookReadContext } from './workbook-readers'
+import { aggregateWorkbookRange } from './range-aggregate'
 import { workbookMediaDataUrl } from './workbook-media'
 import {
   clearVisualSelection,
@@ -583,7 +477,6 @@ import {
   isEditableShape,
 } from './WorkbookVisuals'
 import { ChartFormatPane, SelectDataDialog } from './ChartPanels'
-import { handleSheetsControl, type ControlRequest } from './control'
 
 // Source sheet id of an in-flight copy-sheet command; the next insert-sheet
 // mutation is that copy and must journal as a duplicate, not a blank add.
@@ -614,53 +507,10 @@ function dateTextKind(value: string): 'date-like' | 'text' {
   return kind
 }
 
-export function App({
-  queuedWorkbookAtBoot = false,
-}: {
-  queuedWorkbookAtBoot?: boolean
-}): React.JSX.Element {
+export function App(): React.JSX.Element {
   const adapterRef = useRef(new InMemoryWorkbookAdapter(initialSnapshot))
   const univerRef = useRef<UniverRuntime | null>(null)
   const lazyWorkbookRef = useRef<LazyWorkbookState | null>(null)
-  /**
-   * The cells the reader withheld from the model, read once per open (see the
-   * `readWorkbookRedactions` call in openLazyWorkbook). A ref rather than
-   * state: the readers ask about it per cell and nothing renders from it, and
-   * the marks the user adds later replace it through the same ref.
-   */
-  const redactionIndexRef = useRef<RedactionIndex | null>(null)
-  /**
-   * The same marks, in the shape the save takes (keyed by sheet name, as the
-   * package part is). Held here so a save can carry them even when nothing
-   * else in the journal is dirty — a workbook whose only pending change is a
-   * newly withheld cell is still a workbook that must be saved.
-   */
-  const redactionStatesRef = useRef<readonly SheetRedactionState[]>([])
-  /**
-   * What the part held when this workbook was opened. A mark added or cleared
-   * since then is a pending change the edit journal never sees, and the save
-   * ticks below decide whether there is anything to write from that journal
-   * alone — so without this a workbook whose only edit is a withheld cell
-   * would never autosave, and closing the tab would drop the mark silently.
-   */
-  const loadedRedactionStatesRef = useRef<readonly SheetRedactionState[] | null>(null)
-  /**
-   * The pending "what does this stand for?" question, or null when no dialog
-   * is open. State, not a ref: the dialog renders from it.
-   */
-  const [redactDialog, setRedactDialog] = useState<RedactDialogState | null>(null)
-  /**
-   * True when the reader's marks differ from what the file was opened with.
-   *
-   * Compares the two shapes as text: the marks are a handful of rectangles, and
-   * a stable serialization is both simpler and stricter than a field-by-field
-   * walk — a mark that moved by one row is a change, and both sides serialize
-   * in the same order, so the comparison is exact.
-   */
-  function redactionsPendingSave(): boolean {
-    const loaded = loadedRedactionStatesRef.current
-    return loaded !== null && hasPendingRedactionChange(redactionStatesRef.current, loaded)
-  }
   /// Univer undo/redo stack occupancy (subscribed at mount): drives the QAT button gray states
   const [univerHist, setUniverHist] = useState({ canUndo: false, canRedo: false })
   /// Set once Univer boots; mounts the app's Excel-style Find & Replace panel.
@@ -676,27 +526,12 @@ export function App({
     disposables: [],
     nextId: 0,
   })
-  /// Page Break Preview overlay layers per sheet; the sheet-id set drives the
-  /// ribbon echo, the ref owns the float DOM disposables.
-  const [pageBreakPreviewSheets, setPageBreakPreviewSheets] = useState<ReadonlySet<string>>(
-    new Set(),
-  )
-  const [printHost, setPrintHost] = useState<PrintPreviewHost | null>(null)
-  const pageBreakLayersRef = useRef<Map<string, { dispose(): void }[]>>(new Map())
-  const pageBreakIdRef = useRef(0)
   /// App-level setting, Excel-style: not stored in the file, kept across
   /// workbook switches.
   const [formulaBarVisible, setFormulaBarVisible] = useState(true)
   /// Cross-highlight ("reading mode") of the active row/column, persisted in
   /// localStorage like the auto-save flag; off until the user opts in.
   const [crossHighlightVisible, setCrossHighlightVisible] = useState(loadCrossHighlightPreference)
-  /// Spelling preference (Review ▸ Proofing / F7), docs' spellcheck-pref shape:
-  /// localStorage-backed, default on. Session Ignore-All words ride along and
-  /// live for the app session — docs scopes them to the open document, sheets
-  /// keeps one renderer session, the white-list is harmless across files.
-  const [spellcheckOn, setSpellcheckOn] = useState(spellcheckEnabled)
-  const [spellDialogOpen, setSpellDialogOpen] = useState(false)
-  const spellSessionIgnoredRef = useRef<Set<string>>(new Set())
   const crossHighlightRef = useRef<CrossHighlightHandle | null>(null)
   const outlineGutterRef = useRef<OutlineGutterHandle | null>(null)
   const visualInstallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -705,12 +540,8 @@ export function App({
   const visualViewportKeyRef = useRef('')
   const demoVisualDisposablesRef = useRef<{ dispose(): void }[]>([])
   const demoVisualInstallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [prompt, setPrompt] = useState('')
-  const [preview, setPreview] = useState<ChangePlan | null>(null)
   const [_revision, setRevision] = useState(0)
   const [workbookFile, setWorkbookFile] = useState<WorkbookFile | null>(null)
-  /// The workbook's refreshable data connections (web queries for now).
-  const [queryConnections, setQueryConnections] = useState<QueryConnection[]>([])
   const [pendingEdits, setPendingEdits] = useState(0)
   /// The note-picture lookup reads the file through a ref: the hover-card
   /// install lives once per runtime while the file changes across loads.
@@ -727,8 +558,7 @@ export function App({
       return fresh ? { ...card, picture: fresh } : null
     })
   }, [workbookFile, pendingEdits])
-  /// Whether any cell in the workbook has content — the ribbon's one-click AI
-  /// action buttons are greyed out on a fully empty sheet.
+  /// Whether any cell in the workbook has content.
   const [sheetHasContent, setSheetHasContent] = useState(false)
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null)
   const recomputeSheetContent = useCallback(() => {
@@ -783,13 +613,9 @@ export function App({
           saveInFlight: saveGateRef.current.busy,
           hasWorkbook: true,
           journalEmpty: journalSize(state.editJournal) === 0,
-          redactionsPendingSave: redactionsPendingSave(),
           editingCell: editingCellRef.current,
           needsSaveAsNotUnsavedNew: Boolean(state.file.needsSaveAs) && !state.file.unsavedNew,
           isCsv: state.file.csvPath !== undefined,
-          kind: 'save',
-          restoredFromRecovery: false,
-          automaticRecoveryDisabled: false,
         })
       )
         return
@@ -802,69 +628,18 @@ export function App({
       window.removeEventListener('blur', tick)
     }
   }, [autoSave])
-
-  // Crash-recovery copy: independent of the AutoSave pill — a dirty
-  // workbook gets a real .xlsx copy under userData every 30 s, so a force-quit or a
-  // renderer crash no longer costs everything since the last manual save. A normal
-  // save removes the copy; reopening a file whose copy is newer offers Restore.
-  useEffect(() => {
-    const tick = () => {
-      const state = lazyWorkbookRef.current
-      // The in-cell editor's pending text is not in the journal yet, a
-      // converted import has no original file to recover into, and a restored
-      // recovery session is backed by the recovery copy itself.
-      if (
-        !state ||
-        !shouldRunSaveTick({
-          saveInFlight: saveGateRef.current.busy,
-          hasWorkbook: true,
-          journalEmpty: journalSize(state.editJournal) === 0,
-          redactionsPendingSave: redactionsPendingSave(),
-          editingCell: editingCellRef.current,
-          needsSaveAsNotUnsavedNew: Boolean(state.file.needsSaveAs) && !state.file.unsavedNew,
-          isCsv: state.file.csvPath !== undefined,
-          kind: 'recovery',
-          restoredFromRecovery: state.file.restoredFromRecovery === true,
-          automaticRecoveryDisabled: state.file.automaticRecoveryDisabled === true,
-        })
-      )
-        return
-      void handleSaveRef.current('recovery')
-    }
-    const id = window.setInterval(tick, 30_000)
-    return () => window.clearInterval(id)
-  }, [])
-  const [recoveryPrompt, setRecoveryPrompt] = useState<RecoveryPromptPayload | null>(null)
-  useEffect(
-    () => window.desktopApi?.onRecoveryPrompt?.((prompt) => setRecoveryPrompt(prompt)) ?? undefined,
-    [],
-  )
   /// Streaming-mode filter gate: the filter panel builds
   /// value counts from whatever happens to be loaded and the apply command is
   /// cancelled, so instead of a silent no-op the user gets an explicit offer
   /// to fully load the workbook first.
   const [fullLoadPrompt, setFullLoadPrompt] = useState<'ask' | 'tooLarge' | null>(null)
-  const [encryptedPasswordPrompt, setEncryptedPasswordPrompt] = useState<{
-    readonly error: string | null
-    readonly resolve: (password: string | null) => void
-  } | null>(null)
-  const requestEncryptedWorkbookPassword = (error: string | null): Promise<string | null> =>
-    new Promise((resolve) => setEncryptedPasswordPrompt({ error, resolve }))
-  const answerEncryptedWorkbookPassword = (password: string | null): void => {
-    const prompt = encryptedPasswordPrompt
-    setEncryptedPasswordPrompt(null)
-    prompt?.resolve(password)
-  }
-  const [changeWorkbookPasswordOpen, setChangeWorkbookPasswordOpen] = useState(false)
   const [message, setMessage] = useState(t('appReadyInitial'))
   const sheetTabActions = useMemo(
     () => createSheetTabActions({ univerRef, lazyWorkbookRef, notify: setMessage }),
     [],
   )
   const [openingWorkbook, setOpeningWorkbook] = useState(
-    () =>
-      queuedWorkbookAtBoot ||
-      new URLSearchParams(window.location.search).get('openingWorkbook') === '1',
+    () => new URLSearchParams(window.location.search).get('openingWorkbook') === '1',
   )
   const [emptyCsvNotice, setEmptyCsvNotice] = useState(false)
   /// Zoom of the active sheet in percent, echoed by the status-bar slider.
@@ -886,29 +661,6 @@ export function App({
   /// A1 label of the active cell, echoed live by the Name Box. Updated from
   /// the same SelectionChanged refresh that keeps selectionFormat current.
   const [activeCellA1, setActiveCellA1] = useState('')
-  /// The multi-cell selection the AI composer shows as its scope chip, or null.
-  /// A resting single-cell selection carries no intent, so it gets no chip —
-  /// only a range the user deliberately dragged or shift-selected does.
-  const [aiScope, setAiScope] = useState<FrozenSelection | null>(null)
-  const [aiSelectionAskAnchor, setAiSelectionAskAnchor] = useState<SelectionAskAnchor | null>(null)
-  const selectionDragRef = useRef<{
-    start: Point
-    initialRangeKey: string | null
-    dragged: boolean
-    selectionChanged: boolean
-  } | null>(null)
-  /// The user clicked × on the scope chip: this run targets the sheet at large.
-  /// Re-arms on the next selection change, so a fresh drag means a fresh scope.
-  const [aiScopeDismissed, setAiScopeDismissed] = useState(false)
-  /// Selection scope of the run in flight. undefined = no run owns a scope
-  /// (report the live selection); null = the user dropped it. The ref is what
-  /// the skill's getActiveSheetInfo reads mid-run; the state is what the chip
-  /// renders from, so both are written together by setAiRunScope.
-  const aiRunScopeRef = useRef<FrozenSelection | null | undefined>(undefined)
-  const [aiRunScope, setAiRunScopeState] = useState<FrozenSelection | null | undefined>(undefined)
-  /// `sheetId!A1` of the scope currently on the chip; the refresh compares
-  /// against it so an unchanged selection never resets the dismissed flag.
-  const aiScopeKeyRef = useRef<string | null>(null)
   /// Non-null while the Advanced Filter dialog is open: the column choices
   /// sampled from the active filter range's header row.
   const [advancedFilterColumns, setAdvancedFilterColumns] = useState<
@@ -917,9 +669,7 @@ export function App({
   /// True while the Insert → Symbol dialog is open.
   const [symbolDialogOpen, setSymbolDialogOpen] = useState(false)
   const [cellsDialog, setCellsDialog] = useState<CellsMode | null>(null)
-  const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false)
   const [iconsDialogOpen, setIconsDialogOpen] = useState(false)
-  const [equationDialogOpen, setEquationDialogOpen] = useState(false)
   const [recommendedCharts, setRecommendedCharts] = useState<ChartRecommendations | null>(null)
   /// The focused floating visual (chart/shape/image); charts surface a
   /// contextual Chart Design ribbon tab while selected.
@@ -1026,25 +776,18 @@ export function App({
     viewRow: number
     viewColumn: number
   } | null>(null)
-  /// Set by a save's reopen: the next session-id change continues the same
-  /// AI conversation instead of rehydrating it (which would show the live
-  /// turn a second time under "Earlier conversation").
-  const chatContinuesRef = useRef(false)
-  /// Bumped per chat resolution; a resolution that awaited past a newer one
-  /// must not write ids or history for a workbook that is no longer open.
-  const chatResolveGenRef = useRef(0)
+  /** The host can repeat its queued-open nudge while the renderer starts.
+   * Only one picker/open request may own the workbook session at a time. */
+  const workbookOpeningRef = useRef(false)
   /// Fresh handleSave for the AutoSave tick (assigned each render, like
   /// menuActionRef, so the interval closure never goes stale).
   const handleSaveRef = useRef<
     (
-      mode: 'save' | 'save-as' | 'recovery',
+      mode: 'save' | 'save-as',
       quiet?: boolean,
       explicitTarget?: { path: string; overwrite: boolean },
     ) => Promise<SaveOutcome>
   >(() => Promise.resolve({ ok: false }))
-  /// Latest MCP bridge handlers (assigned each render; see the install below).
-  const mcpSheetHandlersRef = useRef<McpSheetHandlers | null>(null)
-  const closeSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const commitActiveEditor = useCallback(async (): Promise<boolean> => {
     const editor = univerRef.current?.univerAPI.getActiveWorkbook() as
       ActiveCellEditor | null | undefined
@@ -1060,16 +803,6 @@ export function App({
   /// on Apply.
   const pivotEditContextRef = useRef<PivotEditContext | null>(null)
   const [pivotSelectionKey, setPivotSelectionKey] = useState<string | null>(null)
-  const lazyPreviewRef = useRef<{
-    sessionId: string
-    sheetId: string
-    plan: ChangePlan
-  } | null>(null)
-
-  /** App-scope state bundle for the extracted plan builders (plan-operations.ts). */
-  function planContext(): PlanContext {
-    return { adapterRef, univerRef, lazyWorkbookRef, lazyPreviewRef, setPreview, autoApplySafePlan }
-  }
 
   /** App-scope refs/state bundle for the extracted pivot actions (pivot-actions.ts). */
   function pivotContext(): PivotActionContext {
@@ -1113,7 +846,6 @@ export function App({
       shapeEditRef,
       setMessage,
       setRevision,
-      setPreview,
       setPendingEdits,
       pivotContext,
       queueDemoVisualInstall,
@@ -1143,71 +875,7 @@ export function App({
       lazyWorkbookRef,
       setMessage,
       setPendingEdits,
-      refreshPageBreakPreview,
-      requestVisualInstall: () => {
-        const runtime = univerRef.current
-        if (!runtime) return
-        queueVisualInstall(
-          runtime,
-          lazyWorkbookRef,
-          visualDisposablesRef,
-          visualInstallTimerRef,
-          chartEditRef,
-          chartVectorRef,
-          shapeEditRef,
-        )
-      },
       runOps: runUiOps,
-    }
-  }
-
-  // Headless export mode (--headless-export): this renderer lives in a hidden
-  // window whose only job is to run the ribbon's own PDF export against a path
-  // the CLI chose, then report back so the main process can quit.
-  const headlessExportStartedRef = useRef(false)
-  useEffect(() => {
-    if (headlessExportStartedRef.current) return
-    headlessExportStartedRef.current = true
-    void (async () => {
-      const outPath = (await window.desktopApi?.consumeHeadlessExport?.()) ?? null
-      if (!outPath) return
-      const report = await runHeadlessRendererExport(
-        outPath,
-        async () => {
-          await pollUntilReady(() => lazyWorkbookRef.current !== null, 'no workbook opened', {
-            timeoutMs: 300_000,
-          })
-          // The PDF layout needs every cell in the grid. Workbooks small enough
-          // for formula mode preload themselves; a larger one waits for the
-          // user's "Full Load" click, which headless has to make itself.
-          await pollUntilReady(
-            () => {
-              const state = lazyWorkbookRef.current
-              if (!state) return false
-              if (state.flags.preloadComplete) return true
-              const runtime = univerRef.current
-              if (runtime && !state.flags.preloadRunning) {
-                void startFullLoad(runtime, lazyWorkbookRef, setMessage)
-              }
-              return false
-            },
-            'workbook never finished loading',
-            { timeoutMs: 540_000, pollMs: 500 },
-          )
-        },
-        (target) => handleExportPdfImpl(pageLayoutContext(), target),
-      )
-      window.desktopApi?.headlessExportDone?.(report)
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per renderer; reads the latest state through refs
-  }, [])
-
-  function csvExportContext(): CsvExportContext {
-    return {
-      univerRef,
-      lazyWorkbookRef,
-      setMessage,
-      requestSaveAs: () => void handleSaveRef.current('save-as'),
     }
   }
 
@@ -1218,12 +886,7 @@ export function App({
       setMessage,
       openLazyWorkbook,
       setPendingEdits,
-      readCells: (addresses, sheetId) => readCellsImpl(readContext(), addresses, sheetId),
-      // null until the file's own part has been read: an empty array means
-      // "clear the part" to the gateway, and a save that lands before the read
-      // would wipe the withheld-cell marks the file already carries.
-      redactionStates: () =>
-        loadedRedactionStatesRef.current === null ? null : redactionStatesRef.current,
+      readCells: (addresses, sheetId) => readCells(readContext(), addresses, sheetId),
       slicerState: () => {
         // Only a session that changed its slicers rides them on the save:
         // untouched panels keep their parts byte-identical (raw-copied), and
@@ -1295,103 +958,6 @@ export function App({
   visualCommandRef.current = (command, visualId) =>
     handleVisualCommand(visualArrangeContext(), command, visualId)
 
-  function proposeOperations(
-    operations: readonly WorkbookOperation[],
-    summary: string,
-  ): { ok: true; plan: ChangePlan } | { ok: false; error: string } {
-    return proposeOperationsImpl(planContext(), operations, summary)
-  }
-
-  function runDeterministicPlan(instruction: string): { text: string; isError?: boolean } {
-    return runDeterministicPlanImpl(planContext(), instruction)
-  }
-
-  // ---- AI: real LLM agent (falls back to the deterministic planner above
-  // when no provider is configured — see isAgentConfigured/handleSend) ----
-  const [aiSettings, setAiSettingsState] = useState<AiSettings | null>(null)
-  const aiSettingsRef = useRef<AiSettings | null>(null)
-  aiSettingsRef.current = aiSettings
-
-  /** gsk login state for the cloud-tools gate (refreshed on mount and window focus) */
-  const gskLoggedInRef = useRef(false)
-  useEffect(() => {
-    let alive = true
-    const refresh = () => {
-      void window.desktopApi
-        ?.aiGskStatus()
-        .then((s) => {
-          if (alive) gskLoggedInRef.current = !!s?.loggedIn
-        })
-        .catch(() => {})
-    }
-    refresh()
-    window.addEventListener('focus', refresh)
-    return () => {
-      alive = false
-      window.removeEventListener('focus', refresh)
-    }
-  }, [])
-  const [aiBusy, setAiBusy] = useState(false)
-  // Display history survives restarts via localStorage; the AgentLoop's model
-  // context does not, so restored turns are read-only transcript.
-  const [chat, setChat] = useState<readonly AiChatMessage[]>([])
-  /** History loaded from project-store (read-only transcript, not fed to the model) */
-  const [historicChat, setHistoricChat] = useState<readonly AiChatMessage[]>([])
-  // ── Chat attachments (same structure as docs/slides: text types go through the
-  // read_attachment tool, images go multimodal) ──
-  const [attachments, setAttachments] = useState<readonly AttachmentMeta[]>([])
-  const [attachNotice, setAttachNotice] = useState<string | null>(null)
-  const attachmentsRef = useRef(attachments)
-  attachmentsRef.current = attachments
-  const [attachedSkills, setAttachedSkills] = useState<readonly string[]>([])
-  const attachedSkillsRef = useRef(attachedSkills)
-  attachedSkillsRef.current = attachedSkills
-  const toggleSkill = (name: string) =>
-    setAttachedSkills((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
-    )
-  /** Attachments consumed by earlier sends this session: sending clears the composer, but the
-      files skill must keep reading them mid-run and in follow-up turns. Deduped by path. */
-  const sentAttachmentsRef = useRef<readonly AttachmentMeta[]>([])
-  /** composer attachments plus everything already sent this session (deduped by path) */
-  const availableAttachments = (): AttachmentMeta[] => {
-    const seen = new Set<string>()
-    return [...sentAttachmentsRef.current, ...attachmentsRef.current].filter((a) =>
-      seen.has(a.path) ? false : (seen.add(a.path), true),
-    )
-  }
-  /** Synchronous re-entrancy guard between runAgent trigger and loop.run
-   * (loop.busy is still false while attachment images load asynchronously) */
-  const runStartingRef = useRef(false)
-  /** The shell can repeat its queued-open nudge while the renderer starts.
-   * Only one picker/open request may own the workbook session at a time. */
-  const workbookOpeningRef = useRef(false)
-  /** Current session's projectId/chatId (resolved when the workbook opens) */
-  const chatRefIdsRef = useRef<{ projectId: string; chatId: string } | null>(null)
-
-  // File renamed externally (in the shell Home list) → sync the title-bar file
-  // name (the save path is synced by the main process)
-  useEffect(
-    () =>
-      window.desktopApi?.onWorkbookRenamed?.((newName) => {
-        setWorkbookFile((prev) => (prev ? { ...prev, name: newName } : prev))
-      }) ?? (() => undefined),
-    [],
-  )
-
-  // The sidecar process died, so every session id this tab holds is unknown
-  // to the replacement. Record the crash: the next range read re-opens the
-  // workbook through the normal open path and adopts a live session. Only an
-  // actual process death reaches here — a session the app closed or swapped
-  // on purpose is not a crash and must not re-open anything.
-  useEffect(
-    () =>
-      window.desktopApi?.onSidecarCrashed?.(() => {
-        noteSidecarCrash()
-      }) ?? (() => undefined),
-    [],
-  )
-
   useEffect(() => {
     setVisualSelectionListener({
       select: (visual) =>
@@ -1412,809 +978,10 @@ export function App({
     if (!selectedVisual) setChartDialog(null)
   }, [selectedVisual])
 
-  // ── One-time migration: import legacy localStorage history into project-store ──
-  useEffect(() => {
-    const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
-    if (!api) return
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY)
-    if (!raw) return
-    try {
-      const parsed: unknown = JSON.parse(raw)
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        localStorage.removeItem(CHAT_STORAGE_KEY)
-        return
-      }
-      const msgs = parsed.filter(
-        (
-          e,
-        ): e is {
-          role: 'user' | 'assistant'
-          text: string
-          tools?: Array<{ summary: string; isError?: boolean }>
-        } =>
-          !!e &&
-          typeof e === 'object' &&
-          ((e as { role: string }).role === 'user' ||
-            (e as { role: string }).role === 'assistant') &&
-          typeof (e as { text: string }).text === 'string',
-      )
-      if (msgs.length === 0) {
-        localStorage.removeItem(CHAT_STORAGE_KEY)
-        return
-      }
-      // Get the default project's chatId (unsaved-0 marks the file-less default chat)
-      const tempChatId = 'unsaved-legacy'
-      void api
-        .resolveChat({ filePath: null, tempChatId })
-        .then(async (ids) => {
-          for (const m of msgs) {
-            const appendArgs: Parameters<typeof api.appendChat>[0] = {
-              projectId: ids.projectId,
-              chatId: ids.chatId,
-              role: m.role,
-              text: m.text,
-            }
-            if (m.tools && m.tools.length > 0) {
-              appendArgs.tools = m.tools.map((t) => ({
-                name: '',
-                summary: t.summary,
-                isError: !!t.isError,
-              }))
-            }
-            await api.appendChat(appendArgs)
-          }
-          localStorage.removeItem(CHAT_STORAGE_KEY)
-        })
-        .catch(() => {
-          // A failed migration doesn't affect normal use; retried on next launch
-        })
-    } catch {
-      localStorage.removeItem(CHAT_STORAGE_KEY)
-    }
-  }, [])
-
-  // ── project-store: resolve chatId and load history when a workbook opens ──
-  useEffect(() => {
-    const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
-    if (!api) return
-    const continues = chatContinuesRef.current
-    chatContinuesRef.current = false
-    const previous = chatRefIdsRef.current
-    const generation = ++chatResolveGenRef.current
-    const stale = () => chatResolveGenRef.current !== generation
-    // Reset (new workbook or new session)
-    chatRefIdsRef.current = null
-    if (!continues) setHistoricChat([])
-    const tempChatId = `unsaved-${Date.now()}`
-    const sessionId = workbookFile?.sessionId
-    const resolveArgs: Parameters<typeof api.resolveChat>[0] = { filePath: null, tempChatId }
-    if (sessionId !== undefined) resolveArgs.sessionId = sessionId
-    void api
-      .resolveChat(resolveArgs)
-      .then(async (ids) => {
-        if (continues) {
-          // A save swapped the sidecar session under the same conversation:
-          // the panel already shows every turn, so only re-point persistence.
-          // A draft that just hit disk carries its unsaved-* transcript along.
-          const bound =
-            previous && previous.chatId !== ids.chatId && previous.chatId.startsWith('unsaved-')
-              ? await api.rebindChat({
-                  projectId: previous.projectId,
-                  tempChatId: previous.chatId,
-                  ...(sessionId !== undefined ? { sessionId } : { newChatId: ids.chatId }),
-                })
-              : ids
-          if (!stale()) chatRefIdsRef.current = bound
-          return
-        }
-        if (stale()) return
-        chatRefIdsRef.current = ids
-        const msgs = await api.loadChat({
-          projectId: ids.projectId,
-          chatId: ids.chatId,
-          limit: 200,
-        })
-        if (stale() || msgs.length === 0) return
-        setHistoricChat(
-          msgs.map((m) => ({
-            role: m.role,
-            text: m.text,
-            tools:
-              m.tools?.map((t) => ({
-                summary: t.summary,
-                isError: !!t.isError,
-                ...(t.name ? { name: t.name } : {}),
-                ...(t.output ? { output: t.output.slice(0, 2000) } : {}),
-              })) ?? [],
-            // stored metadata only: no thumbnail read for history, the chips render name/size
-            ...(m.attachments && m.attachments.length > 0
-              ? {
-                  attachments: m.attachments
-                    .filter((a) => a.path)
-                    .map((a) => ({
-                      name: a.name,
-                      path: a.path ?? '',
-                      ext: a.ext ?? '',
-                      sizeBytes: a.sizeBytes ?? 0,
-                    })),
-                }
-              : {}),
-            ...(m.scope ? { scope: m.scope } : {}),
-          })),
-        )
-        // Restore model context: follow-ups after reopening the file continue the
-        // previous conversation (only when the loop is idle and has no history)
-        agentLoopRef.current?.restore(msgs.map((m) => ({ role: m.role, text: m.text })))
-      })
-      .catch(() => {
-        /* silent */
-      })
-  }, [workbookFile?.sessionId])
-
-  const persistChatMessage = (
-    role: 'user' | 'assistant',
-    text: string,
-    tools?: Array<{
-      name?: string
-      summary: string
-      isError?: boolean
-      input?: string
-      output?: string
-    }>,
-    attachments?: readonly AttachmentMeta[],
-    scope?: AiScopeQuoteData,
-  ): boolean => {
-    // Reports whether a write was issued: right after a workbook opens the
-    // chat refs resolve asynchronously, and a send in that window is dropped.
-    const ids = chatRefIdsRef.current
-    const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
-    if (!ids || !api) return false
-    void api
-      .appendChat({
-        projectId: ids.projectId,
-        chatId: ids.chatId,
-        role,
-        text,
-        ...(tools && tools.length > 0
-          ? { tools: tools.map((t) => ({ ...t, name: t.name ?? '' })) }
-          : {}),
-        ...(attachments && attachments.length > 0
-          ? {
-              attachments: attachments.map((a) => ({
-                name: a.name,
-                path: a.path,
-                ext: a.ext,
-                sizeBytes: a.sizeBytes,
-              })),
-            }
-          : {}),
-        ...(scope ? { scope } : {}),
-      })
-      .catch(() => {
-        /* silent */
-      })
-    return true
-  }
-
-  function appendChat(entry: AiChatMessage): void {
-    setChat((previous) => [...previous, entry])
-  }
-
-  function patchLastAssistant(patch: (entry: AiChatMessage) => AiChatMessage): void {
-    setChat((previous) => {
-      const index = previous.length - 1
-      const last = previous[index]
-      if (!last || last.role !== 'assistant') return previous
-      const next = previous.slice()
-      next[index] = patch(last)
-      return next
-    })
-  }
-
-  /** Tool activity for the whole run (args/output included, accumulated across
-   * turns) — for full transcript persistence */
-  const runToolsRef = useRef<
-    Array<{ name: string; summary: string; isError?: boolean; input?: string; output?: string }>
-  >([])
-  /** tokens billed so far in the in-flight run (summed across turns) */
-  const runUsageRef = useRef<AiTokenUsageView | undefined>(undefined)
-  /** tokens billed across the session (the composer chip) */
-  const [sessionUsage, setSessionUsage] = useState<AiTokenUsageView | undefined>(undefined)
-  /** AI plans apply asynchronously after propose_operations returns. Run
-   * completion waits for these before doing the run's single auto-save. */
-  const aiApplyPromisesRef = useRef<Promise<boolean>[]>([])
-  /** Last non-empty streamed text of the run: a final empty turn falls back to
-   * it instead of wiping the model's own summary from the tool-call turn. */
-  const runLastTextRef = useRef('')
-  /** true once any tool of the run mutated the workbook */
-  const runMutatedRef = useRef(false)
-
-  const agentLoopRef = useRef<AgentLoop | null>(null)
-  if (!agentLoopRef.current) {
-    agentLoopRef.current = new AgentLoop({
-      transport: createElectronTransport(() => aiSettingsRef.current!),
-      systemSuffix: aiLangDirective,
-      skill: composeSkills('sheets+files', '', [
-        createWorkbookSkill(sheetsSkillDeps()),
-        createFilesSkill(availableAttachments),
-        createMergeSkill({
-          getAttachments: availableAttachments,
-          mergePaths: (paths) => {
-            const runtime = univerRef.current
-            if (!runtime) throw new Error(t('appMergeWorkbooksFailed'))
-            return mergeAttachedWorkbooks({ runtime, lazyWorkbookRef, setMessage }, paths)
-          },
-        }),
-        createSearchSkill(),
-        createImageSkill(() =>
-          imageGenerationAvailable(aiSettingsRef.current, gskLoggedInRef.current),
-        ),
-      ]),
-      events: {
-        onText: (text) => {
-          if (text) runLastTextRef.current = text
-          // Status bar (and the ribbon-row status span) show a short state only;
-          // the full streamed prose lives in the chat panel.
-          setMessage(t('appAiThinking'))
-          // When the model retries successfully and keeps streaming after a
-          // mid-run failure (e.g. one apply error), clear the error flag —
-          // otherwise the whole successful message stays rendered in red.
-          patchLastAssistant((entry) => ({ ...entry, text, isError: false }))
-        },
-        onToolStart: (call) => {
-          // Live "running" chip: replaced in place by onToolExecuted
-          patchLastAssistant((entry) => ({
-            ...entry,
-            tools: [
-              ...entry.tools,
-              {
-                summary: call.name.replace(/[_-]+/g, ' '),
-                isError: false,
-                name: call.name,
-                running: true,
-              },
-            ],
-          }))
-        },
-        onToolExecuted: ({ call, execution }) => {
-          if (execution.mutated) runMutatedRef.current = true
-          const input = safeJsonInput(call.input)
-          const output = execution.output
-            ? execution.output.slice(0, PERSIST_TOOL_FIELD_MAX)
-            : undefined
-          runToolsRef.current.push({
-            name: call.name,
-            summary: execution.summary,
-            isError: !!execution.isError,
-            ...(input !== undefined ? { input } : {}),
-            ...(output !== undefined ? { output } : {}),
-          })
-          patchLastAssistant((entry) => {
-            // Swap out the running placeholder pushed by onToolStart (parse-fail calls have none)
-            const tools = [...entry.tools]
-            if (tools.at(-1)?.running) tools.pop()
-            return {
-              ...entry,
-              tools: [
-                ...tools,
-                {
-                  summary: execution.summary,
-                  isError: !!execution.isError,
-                  name: call.name,
-                  ...(execution.output ? { output: execution.output.slice(0, 2000) } : {}),
-                },
-              ],
-            }
-          })
-        },
-        onUsage: (usage) => {
-          runUsageRef.current = addTokenUsage(runUsageRef.current, usage)
-          setSessionUsage((prev) => addTokenUsage(prev, usage))
-          patchLastAssistant((entry) => ({ ...entry, usage: runUsageRef.current }))
-        },
-        onDone: ({ text, cancelled, turnLimit, truncated }) => {
-          // Prefer tool summaries when the model finished via tools with no prose
-          // (agent-core fills history with COMPLETED_VIA_TOOLS_TEXT so follow-ups
-          // stay provider-safe; the UI can show the real work that ran).
-          const toolSummaries = (() => {
-            const lines: string[] = []
-            const seen = new Set<string>()
-            for (const tool of runToolsRef.current) {
-              if (!tool.summary || tool.isError || seen.has(tool.summary)) continue
-              seen.add(tool.summary)
-              lines.push(tool.summary)
-              if (lines.length >= 8) break
-            }
-            return lines.join('\n')
-          })()
-          // A cancelled run must keep the "stopped" notice: earlier narration or
-          // tool summaries would make an aborted run read as completed.
-          const prose =
-            text && text !== COMPLETED_VIA_TOOLS_TEXT
-              ? text
-              : cancelled
-                ? ''
-                : runLastTextRef.current || toolSummaries || text
-          // A final empty turn must not claim completion: reuse the model's last
-          // streamed text; with none, only a mutating run gets the "done" phrasing.
-          const fallback = cancelled
-            ? t('appAiStopped')
-            : runLastTextRef.current ||
-              toolSummaries ||
-              (runMutatedRef.current ? t('appAiNoSummary') : t('appAiNoAction'))
-          const baseText = turnLimit
-            ? [prose, t('appAiTurnLimit')].filter(Boolean).join('\n\n')
-            : prose || fallback
-          const finalText = truncated
-            ? [baseText, t('appAiTruncatedNote')].filter(Boolean).join('\n\n')
-            : baseText
-          setMessage(cancelled ? t('appAiStopped') : t('appAiDone'))
-          patchLastAssistant((entry) => ({
-            ...entry,
-            text: finalText,
-            streaming: false,
-            isError: false,
-            // A stop mid-tool can leave a running placeholder behind — drop it
-            tools: entry.tools.filter((tl) => !tl.running),
-          }))
-          // Persist the assistant message (side effect outside the updater;
-          // tools stores the run's complete activity)
-          if (!cancelled && finalText) {
-            persistChatMessage('assistant', finalText, runToolsRef.current)
-          }
-          setAiRunScope(undefined)
-          void autoSaveCompletedAiRun().finally(() => setAiBusy(false))
-        },
-        onError: (error) => {
-          setMessage(error)
-          setChat((previous) => {
-            const next = [...previous]
-            // the loop rolled this run's user message out of the model context — surface that
-            for (let i = next.length - 1; i >= 0; i--) {
-              const entry = next[i]!
-              if (entry.role === 'user') {
-                next[i] = { ...entry, undelivered: true }
-                break
-              }
-            }
-            const last = next.at(-1)
-            if (last?.role === 'assistant') {
-              next[next.length - 1] = {
-                ...last,
-                text: error,
-                isError: true,
-                streaming: false,
-                tools: last.tools.filter((tl) => !tl.running),
-              }
-            }
-            return next
-          })
-          // Signed-out failures get an inline sign-in button; detected via
-          // gsk status rather than matching the localized error text — but only
-          // when Genspark is the provider: a BYOK user's error (e.g. their own
-          // provider's rate limit) must not advertise a Genspark sign-in (genoffice#1948)
-          void window.desktopApi
-            .aiGskStatus()
-            .then((status) => {
-              if (status.loggedIn) return
-              if ((aiSettingsRef.current?.provider ?? 'genspark') !== 'genspark') return
-              setChat((previous) => {
-                const next = [...previous]
-                const last = next.at(-1)
-                if (last?.role === 'assistant' && last.isError) {
-                  next[next.length - 1] = { ...last, loginRequired: true }
-                }
-                return next
-              })
-            })
-            .catch(() => {})
-          setAiRunScope(undefined)
-          void autoSaveCompletedAiRun().finally(() => setAiBusy(false))
-        },
-      },
-    })
-  }
-
-  function isAgentConfigured(): boolean {
-    const settings = aiSettingsRef.current
-    if (!settings) return false
-    const config = settings.providers[settings.provider]
-    if (!config?.model) return false
-    // Genspark's key never lands in the settings file; the main process injects
-    // it from the gsk login state. When logged out, requests return an error
-    // guiding sign-in — not intercepted here.
-    return settings.provider === 'genspark' || !!config.apiKey
-  }
-
-  /** Image attachments read as base64 and sent multimodal with this user message
-   * (≤5MB each, max 20; same structure as docs/slides) */
-  const MAX_IMAGES_PER_MESSAGE = 20
-  async function collectImageAttachments(atts: readonly AttachmentMeta[]): Promise<AgentImage[]> {
-    const imageAtts = atts.filter((a) => ATTACHMENT_IMAGE_EXTS.has(a.ext))
-    const images: AgentImage[] = []
-    const failures: string[] = []
-    for (const att of imageAtts.slice(0, MAX_IMAGES_PER_MESSAGE)) {
-      const result = await window.desktopApi.readAttachmentImage(att.path)
-      if (result.ok && result.base64 && result.mime) {
-        images.push({ base64: result.base64, mime: result.mime })
-      } else {
-        failures.push(result.error ?? t('appAttachmentReadFailed', { name: att.name }))
-      }
-    }
-    if (imageAtts.length > MAX_IMAGES_PER_MESSAGE) {
-      failures.push(t('appTooManyImages', { max: MAX_IMAGES_PER_MESSAGE }))
-    }
-    if (failures.length > 0) {
-      setAttachNotice(failures.join('；'))
-      window.setTimeout(() => setAttachNotice(null), 5000)
-    }
-    return images
-  }
-
-  /** the attached skills' full text in front of the request; a skill that vanished is skipped */
-  const withSkillBodies = async (instruction: string, names: readonly string[]) => {
-    if (names.length === 0) return instruction
-    const bodies = await Promise.all(
-      names.map(async (name) => {
-        try {
-          return { name, body: await window.desktopApi.skillText(name) }
-        } catch {
-          return null
-        }
-      }),
-    )
-    return withAttachedSkills(
-      instruction,
-      bodies.filter((b): b is { name: string; body: string } => b !== null),
-    )
-  }
-
-  function runAgent(
-    instruction: string,
-    sentAttachments: readonly AttachmentMeta[],
-    sentSkills: readonly string[] = [],
-  ): void {
-    const loop = agentLoopRef.current
-    if (!instruction.trim() || !loop || loop.busy || runStartingRef.current) return
-    runStartingRef.current = true
-    // Freeze the selection scope for the whole run: users go on clicking around
-    // while the AI works, so a live read would retarget "this column" mid-run.
-    // Released in onDone/onError, which own the rest of the run teardown.
-    setAiRunScope(aiScopeDismissed ? null : aiScope)
-    aiApplyPromisesRef.current = []
-    runLastTextRef.current = ''
-    runMutatedRef.current = false
-    setAiBusy(true)
-    setMessage(t('appAiThinking'))
-    appendChat({ role: 'assistant', text: '', tools: [], streaming: true })
-    void collectImageAttachments(sentAttachments)
-      .then(async (images) => {
-        const modelInstruction = await withSkillBodies(instruction, sentSkills)
-        runStartingRef.current = false
-        loop.run(modelInstruction, images)
-      })
-      .catch(async () => {
-        // an unreadable image must not strand the run, nor drop the skills the user attached
-        const modelInstruction = await withSkillBodies(instruction, sentSkills).catch(
-          () => instruction,
-        )
-        runStartingRef.current = false
-        loop.run(modelInstruction)
-      })
-  }
-
-  const mergeAttachments = (result: AttachmentAddResult | null): void => {
-    if (!result) return
-    if (result.accepted.length > 0) {
-      setAttachments((prev) => {
-        const seen = new Set(prev.map((a) => a.path))
-        return [...prev, ...result.accepted.filter((a) => !seen.has(a.path))]
-      })
-    }
-    if (result.rejected.length > 0) {
-      setAttachNotice(result.rejected.join('；'))
-      window.setTimeout(() => setAttachNotice(null), 5000)
-    }
-  }
-
-  async function handlePickAttachments(): Promise<void> {
-    mergeAttachments(await window.desktopApi.pickAttachments())
-  }
-
-  async function handleAddAttachmentPaths(paths: readonly string[]): Promise<void> {
-    if (paths.length === 0) return
-    mergeAttachments(await window.desktopApi.addAttachmentPaths([...paths]))
-  }
-
-  async function handleAddPastedImage(data: ArrayBuffer, ext: string): Promise<void> {
-    mergeAttachments(await window.desktopApi.addPastedImage(data, ext))
-  }
-
-  function handleRemoveAttachment(path: string): void {
-    setAttachments((prev) => prev.filter((a) => a.path !== path))
-  }
-
-  function handleStopAgent(): void {
-    agentLoopRef.current?.cancel()
-  }
-
-  /// A citation link in an AI answer ([B12](sheetnav://B12)): jump the grid to
-  /// the cited cell or range through the same path the Name Box uses.
-  function handleAiCitation(href: string): void {
-    const ref = parseSheetNavHref(href)
-    if (ref === null) return
-    const error = goToReferenceImpl(dataToolsContext(), ref)
-    if (error !== null) setMessage(error)
-  }
-
-  function handleNewChat(): void {
-    agentLoopRef.current?.reset()
-    setAiRunScope(undefined)
-    setAiBusy(false)
-    setChat([])
-    setHistoricChat([])
-    // Unsent composer attachments would otherwise ride into the next chat's
-    // file context (availableAttachments merges sent + live) — same as docs
-    // (#224) and slides. The typed draft itself is kept.
-    setAttachments([])
-    setAttachedSkills([])
-    setAttachNotice(null)
-    sentAttachmentsRef.current = []
-    setPreview(null)
-    lazyPreviewRef.current = null
-    setMessage(t('appNewConversation'))
-  }
-
-  /** DSL context the AgentSkill reads/writes through — reuses the exact same
-   * preview-then-apply path handlePlan/handleLazyPlan already exercise. */
-  /** App-scope refs bundle for the extracted workbook readers (ai/workbook-readers.ts). */
+  /** App-scope refs bundle for the extracted workbook readers (workbook-readers.ts). */
   function readContext(): WorkbookReadContext {
-    return { univerRef, lazyWorkbookRef, adapterRef, redactionIndexRef }
+    return { univerRef, lazyWorkbookRef, adapterRef }
   }
-
-  /**
-   * The index the grid, the tint and the model all read.
-   *
-   * `redactionStatesRef` holds the marks in file coordinates — where the
-   * reader put them, and where a save writes them. The grid is somewhere else
-   * after this session's row and column edits, so the index is derived by
-   * replaying the journal's structural ops rather than by moving the marks and
-   * trying to move them back on undo. The journal is already how a streamed
-   * viewport survives the same shift, and it cancels an insert/remove pair on
-   * undo, so a mark follows the grid for free and returns with ⌘Z.
-   */
-  function rebuildRedactionIndex(): void {
-    const journal = lazyWorkbookRef.current?.editJournal
-    if (!journal) return
-    const sheets = getActiveSheetInfo().sheets
-    const idByName = new Map(sheets.map((sheet) => [sheet.name, sheet.id]))
-    const onScreen = statesOnScreen(redactionStatesRef.current, (name) => {
-      const id = idByName.get(name)
-      return id === undefined ? [] : (journal.structuralOps.get(id) ?? [])
-    })
-    redactionIndexRef.current = indexFor(onScreen, sheets)
-  }
-
-  function getActiveSheetInfo(): ActiveSheetInfo {
-    return getActiveSheetInfoImpl(readContext(), aiRunScopeRef.current)
-  }
-
-  /**
-   * Re-derive the index whenever the grid's structure changes.
-   *
-   * A row inserted above a mark leaves it covering whatever shifted down into
-   * its place, and the app looks right the whole time — the tint is drawn from
-   * the mark — so the leak only appears in the saved file, on the next open, on
-   * someone else's machine. The AI's own inserts are refused while a mark would
-   * move (`ai/redact-guard.ts`); a person inserting a row from the grid is the
-   * case no guard sees.
-   */
-  const watchStructuralEditsForMarks = (): void => {
-    const api = univerRef.current?.univerAPI
-    if (!api) return
-    api.onCommandExecuted((command: { id?: string }) => {
-      if (!command?.id || !STRUCTURAL_EDIT_COMMAND_PATTERN.test(command.id)) return
-      rebuildRedactionIndex()
-    })
-  }
-
-  /** Turn a grid right-click into either a dialog or an immediate clear. */
-  function onRedactSelection(request: SelectionRequest) {
-    const state = lazyWorkbookRef.current
-    if (!state) return
-    const workbook = univerRef.current?.univerAPI.getActiveWorkbook()
-    const sheetName = workbook?.getSheetBySheetId(request.sheetId)?.getSheetName()
-    const intent = redactIntentFor(request, redactionIndexRef.current ?? NO_REDACTIONS, (id) =>
-      workbook?.getSheetBySheetId(id)?.getSheetName(),
-    )
-    if (intent.kind === 'ignore') return
-    if (intent.kind === 'clear') {
-      // The tint was clicked on the grid, so what arrives is in screen
-      // coordinates; the store keeps file coordinates. Same translation the
-      // create path makes, so the two actually meet.
-      const clearOps = lazyWorkbookRef.current?.editJournal.structuralOps.get(request.sheetId) ?? []
-      const clearRow = screenToFile(clearOps, 'row', intent.mark.startRow)
-      const clearEndRow = screenToFile(clearOps, 'row', intent.mark.endRow)
-      const clearCol = screenToFile(clearOps, 'column', intent.mark.startColumn)
-      const clearEndCol = screenToFile(clearOps, 'column', intent.mark.endColumn)
-      // The same gesture that withheld it stops withholding it — one item, and
-      // no second string in a locale set that must not grow.
-      const marked =
-        clearRow === null || clearEndRow === null || clearCol === null || clearEndCol === null
-          ? undefined
-          : redactionStatesRef.current
-              .find((entry) => entry.sheetName === intent.sheetName)
-              ?.marks.find(
-                (mark) =>
-                  mark.startRow === clearRow &&
-                  mark.endRow === clearEndRow &&
-                  mark.startColumn === clearCol &&
-                  mark.endColumn === clearEndCol,
-              )
-      const next =
-        clearRow === null || clearEndRow === null || clearCol === null || clearEndCol === null
-          ? redactionStatesRef.current
-          : clearMark(redactionStatesRef.current, intent.sheetName, {
-              ...intent.mark,
-              startRow: clearRow,
-              endRow: clearEndRow,
-              startColumn: clearCol,
-              endColumn: clearEndCol,
-            })
-      redactionStatesRef.current = next
-      rebuildRedactionIndex()
-      // The tint is the only thing the mark ever did to the reader's own
-      // formatting, so clearing has to take it back off.
-      if (marked && workbook) {
-        try {
-          restoreCellFill(
-            univerRef.current!,
-            request.sheetId,
-            workbook.getSheetBySheetId(request.sheetId)!.getRange(a1Of(intent.mark)) as never,
-            marked.previousFill,
-            workbook.getId(),
-          )
-        } catch {
-          // A cell the grid will not hand out (filtered out, never loaded) is
-          // not a reason to keep the mark; the mark is already gone.
-        }
-      }
-      return
-    }
-    // A single cell offers its own text as the label, so the common case is
-    // one word of typing; a range has no text and starts empty.
-    let seed = ''
-    if (request.isSingleCell) {
-      try {
-        seed =
-          (
-            workbook
-              ?.getSheetBySheetId(request.sheetId)
-              ?.getRange(`${columnLabel(request.startColumn)}${request.startRow + 1}`)
-              .getValue() as string | undefined
-          )?.slice(0, 24) ?? ''
-      } catch {
-        // An unreadable cell just means no seed offered.
-      }
-    }
-    setRedactDialog({ ...intent.dialog, seed })
-    if (sheetName === undefined) setRedactDialog(null)
-  }
-
-  /** Commit the label the reader typed. */
-  function onRedactConfirm(label: string) {
-    const pending = redactDialog
-    setRedactDialog(null)
-    if (!pending) return
-    const clean = sanitizeLabel(label)
-    if (!clean) return
-    const workbook = univerRef.current?.univerAPI.getActiveWorkbook()
-    const worksheet = workbook?.getSheetBySheetId(pending.sheetId)
-    // A mark is written into the package part, so it has to name the cell the
-    // FILE has, not the one the grid is showing: this session may have
-    // inserted rows above it that the file has never seen. `screenToFile`
-    // answers null for a row inserted this session — it has no file coordinate
-    // to write down — so the reader is told to save rather than handed a mark
-    // the save would later shift a second time.
-    const ops = lazyWorkbookRef.current?.editJournal.structuralOps.get(pending.sheetId) ?? []
-    const startRow = screenToFile(ops, 'row', pending.startRow)
-    const endRow = screenToFile(ops, 'row', pending.endRow)
-    const startColumn = screenToFile(ops, 'column', pending.startColumn)
-    const endColumn = screenToFile(ops, 'column', pending.endColumn)
-    if (startRow === null || endRow === null || startColumn === null || endColumn === null) {
-      showToast(t('redactNeedsSavedRow'), 'error')
-      return
-    }
-    const inFile = { startRow, endRow, startColumn, endColumn }
-    // buildMark reads the fill, paints the tint and returns both, so the mark
-    // cannot be assembled without the value that has to be restored later. The
-    // tint is drawn on the grid, so it takes the screen bounds.
-    let mark: MarkKey & { label: string; previousFill: string | null } = {
-      ...inFile,
-      label: clean,
-      previousFill: null,
-    }
-    try {
-      if (worksheet) {
-        mark = buildMark(worksheet, a1Of(pending), clean, {
-          startRow: pending.startRow,
-          endRow: pending.endRow,
-          startColumn: pending.startColumn,
-          endColumn: pending.endColumn,
-        })
-        // buildMark echoes the bounds it was handed; the stored copy is the
-        // file-coord one, the painted one is the screen one.
-        mark = { ...mark, ...inFile }
-      }
-    } catch {
-      // A range the grid will not hand out still gets its mark; it just goes
-      // unmarked on screen, which is the same state the reader is in anyway
-      // for a sheet that has not finished streaming.
-    }
-    const next = addMark(redactionStatesRef.current, pending.sheetName, mark)
-    redactionStatesRef.current = next
-    // Not `indexFor(next, …)`: the states are in file coordinates now, and the
-    // index the grid reads has to be the screen ones. The same replay the
-    // loaded marks go through covers this one.
-    rebuildRedactionIndex()
-  }
-
-  /** `A1:B2` for a mark's rectangle, for the range the tint is painted on. */
-  function a1Of(area: {
-    startRow: number
-    endRow: number
-    startColumn: number
-    endColumn: number
-  }): string {
-    return (
-      `${columnLabel(area.startColumn)}${area.startRow + 1}:` +
-      `${columnLabel(area.endColumn)}${area.endRow + 1}`
-    )
-  }
-
-  function sheetsSkillDeps(): SheetsSkillDeps {
-    return {
-      getActiveSheetInfo,
-      aggregateRange: (sheetId, bounds) => aggregateWorkbookRange(readContext(), sheetId, bounds),
-      ensureRangeLoaded: async (range, sheetId) => {
-        const state = lazyWorkbookRef.current
-        if (!state) return true
-        // Fully-loaded workbooks (formula mode) have every cell in the grid.
-        if (state.flags.preloadComplete) return true
-        const runtime = univerRef.current
-        const workbook = runtime?.univerAPI.getActiveWorkbook()
-        const worksheet =
-          sheetId === undefined ? workbook?.getActiveSheet() : workbook?.getSheetBySheetId(sheetId)
-        if (!runtime || !worksheet) return false
-        // A sheet added this session has no file part to stream from — the
-        // grid already holds everything.
-        if (!state.file.sheets.some((sheet) => sheet.id === worksheet.getSheetId())) return true
-        // Anything reaching here genuinely streams; refuse blocks too large
-        // to load in one request.
-        if (rangeCellCount(range) > MAX_READ_RANGE_CELLS) return false
-        return ensureLazyRangeLoaded(runtime, lazyWorkbookRef, worksheet, range, setMessage)
-      },
-      readCells: (addresses, sheetId) => readCellsImpl(readContext(), addresses, sheetId),
-      readFormats: (addresses, sheetId) => readFormatsImpl(readContext(), addresses, sheetId),
-      readSheetFeatures: (sheetId) => readSheetFeaturesImpl(readContext(), sheetId),
-      findCells: (options) => findWorkbookCells(readContext(), options),
-      selectRange: (sheetId, bounds) =>
-        selectWorkbookRange(readContext(), sheetId, bounds, setMessage),
-      tracePrecedents: (sheetId, address) =>
-        traceWorkbookPrecedents(readContext(), sheetId, address),
-      traceDependents: (sheetId, address) =>
-        traceWorkbookDependents(readContext(), sheetId, address),
-      redactions: () => redactionIndexRef.current ?? NO_REDACTIONS,
-      proposeOperations,
-      createDocument: (request) => createAiDocument({ univerRef, lazyWorkbookRef }, request),
-    }
-  }
-
-  useEffect(() => {
-    const loadSettings = () => void window.desktopApi.getAiSettings().then(setAiSettingsState)
-    loadSettings()
-    return window.desktopApi.onAiSettingsChanged?.(loadSettings)
-  }, [])
 
   useEffect(() => {
     // Univer paints the grid on canvas, so it can't follow the CSS tokens —
@@ -2249,10 +1016,7 @@ export function App({
           numberAsTextAlertLocale(UniverPresetSheetsCoreEnUS),
           // last wins per namespace: feed the alert-patched pack through so
           // both sheets-ui patches survive the shallow merge
-          hideFromAiLocale(
-            insertRowsBelowLocale(numberAsTextAlertLocale(UniverPresetSheetsCoreEnUS)),
-            'en',
-          ),
+          insertRowsBelowLocale(numberAsTextAlertLocale(UniverPresetSheetsCoreEnUS)),
         ),
       },
       presets: [
@@ -2385,13 +1149,9 @@ export function App({
     // Hold the formula engine's per-chunk recalculation while file data streams
     // in; one merged cycle follows once the chunks stop.
     installFormulaStreamHold(runtime)
-    // The window always starts blank now; still consume the one-shot
-    // new-blank flag so it doesn't leak into the next workbook open.
-    void window.desktopApi?.consumeNewBlankWorkbook?.()
-    // Pull any shell-queued workbook ourselves: the shell's 'open' nudge loop
-    // gives up after 30s, and on slow dev cold starts Univer mounts later than
-    // that — the tab would strand as a blank in-memory workbook (no save, no
-    // shapes) with the queued file silently never opened.
+    // Pull any host-queued workbook ourselves: the host page hands a file over,
+    // and a slow cold start would otherwise strand the tab as a blank
+    // in-memory workbook (no save, no shapes) with the queued file never opened.
     void window.desktopApi?.hasQueuedWorkbook?.().then((queued) => {
       if (queued) void handleInspectWorkbook()
     })
@@ -2428,9 +1188,6 @@ export function App({
     // The fx bar grows to fit a wrapped formula instead of clipping it.
     const formulaBarAutosizeDisposable = installFormulaBarAutosize(runtime)
     const fxButtonDisposable = installFxButtonHook(runtime)
-    // The picking side of the cross-workbook range picker (#2109): another
-    // tab's dialog can arm a pick against this workbook's grid.
-    const pickRelayDisposable = installWorkbookPickRelay(runtime)
     // A file formula the engine re-computes into an error shows the file's
     // cached result instead; display-only.
     const cachedValueDisposable = installCachedValueFallbackInterceptor(runtime, lazyWorkbookRef)
@@ -2480,10 +1237,6 @@ export function App({
       },
     })
     const ctrlDragFillDisposable = installCtrlDragFill(runtime)
-    // The grid's right-click item that withholds the selected cells from the
-    // AI. Contributed to Univer's own menu rather than replacing it, so every
-    // built-in item keeps working.
-    const redactMenuDisposable = installRedactMenu(runtime, onRedactSelection)
     // A context-menu submenu re-hovered within Univer's close delay stays
     // invisible; re-trigger its positioning (genoffice#337).
     const contextSubmenuReopenDisposable = installContextSubmenuReopenFix()
@@ -2547,7 +1300,9 @@ export function App({
       runtime,
       lazyWorkbookRef,
       aggregate: (sheetId, bounds) =>
-        aggregateWorkbookRange(readContext(), sheetId, bounds, { skipFileHiddenRows: true }),
+        aggregateWorkbookRange(univerRef, lazyWorkbookRef, adapterRef, sheetId, bounds, {
+          skipFileHiddenRows: true,
+        }),
     })
     // Validation dropdowns and input messages follow the active cell, matching Excel.
     const dataValidationChromeDisposable = installActiveCellDataValidationChrome(runtime)
@@ -2570,9 +1325,6 @@ export function App({
       setPendingEdits(journalSize(state.editJournal))
     }
     void window.desktopApi.getUserDisplayName?.().then((name) => threadStore.setAuthor(name))
-    const offAuthorChanged = window.desktopApi.onUserDisplayNameChanged?.((name) =>
-      threadStore.setAuthor(name),
-    )
     // Univer's own UI (rule-management panels, dialogs) follows the app
     // language instead of hard-coded English.
     void applyUniverLocale(runtime, getLang())
@@ -2610,7 +1362,6 @@ export function App({
     const scrollDisposable = runtime.univerAPI.addEvent(
       runtime.univerAPI.Event.Scroll,
       (params) => {
-        setAiSelectionAskAnchor(null)
         const { worksheet } = params
         // The event carries the true post-scroll position; getVisibleRange
         // inside loadVisibleRange lags a frame.
@@ -2653,7 +1404,6 @@ export function App({
     const zoomDisposable = runtime.univerAPI.addEvent(
       runtime.univerAPI.Event.SheetZoomChanged,
       ({ worksheet }) => {
-        setAiSelectionAskAnchor(null)
         setZoomPercent(Math.round(worksheet.getZoom() * 100))
       },
     )
@@ -2674,7 +1424,6 @@ export function App({
       () => {
         editingCellRef.current = true
         syncCellEditorPending()
-        setAiSelectionAskAnchor(null)
       },
     )
     const editEndDisposable = runtime.univerAPI.addEvent(
@@ -2688,7 +1437,6 @@ export function App({
       runtime.univerAPI.Event.ActiveSheetChanged,
       ({ activeSheet }) => {
         setActiveSheetId(activeSheet.getSheetId())
-        setAiSelectionAskAnchor(null)
         void loadVisibleRange(runtime, lazyWorkbookRef, activeSheet, setMessage)
         // formula view is per-sheet (sheetView/@showFormulas)
         applyShowFormulasView(runtime, lazyWorkbookRef.current, activeSheet.getSheetId())
@@ -3026,9 +1774,6 @@ export function App({
             }
           }
           // Resizes and hidden lines move the automatic page boundaries.
-          if (pageBreakLayersRef.current.has(params.subUnitId)) {
-            installPageBreakLayers(params.subUnitId)
-          }
           setPendingEdits(journalSize(state.editJournal))
           return
         }
@@ -3263,9 +2008,6 @@ export function App({
               structuralSheetId,
               mapProtectedRanges(protectedRanges, [structuralOp]),
             )
-          }
-          if (pageBreakLayersRef.current.has(structuralSheetId)) {
-            installPageBreakLayers(structuralSheetId)
           }
           // Univer shifted its installed cells itself, but the loaded-range
           // bookkeeping and frozen strip are now stale — refetch the viewport
@@ -3680,13 +2422,9 @@ export function App({
         }
       },
     )
-    // File-menu accelerators (⌘O/⌘S/⇧⌘S) arrive from the main process.
+    // File-menu accelerators (⌘O/⌘S/⇧⌘S) arrive from the host page.
     const unsubscribeMenu =
       window.desktopApi?.onMenuAction((action) => menuActionRef.current(action)) ??
-      (() => undefined)
-    // Close guard chose Save: run the journal save and report the outcome.
-    const unsubscribeCloseSave =
-      window.desktopApi?.onCloseSaveRequest?.(() => void closeSaveRef.current()) ??
       (() => undefined)
     const gridHost = document.getElementById('univer-container')
     const disposePictureTransfer = gridHost
@@ -3738,94 +2476,9 @@ export function App({
           },
         })
       : () => undefined
-    let selectionAskRaf: number | null = null
-    let selectionAskSettleRaf: number | null = null
-    let selectionAskSettling = false
-    const activeRangeKey = (): string | null => {
-      try {
-        const range = runtime.univerAPI.getActiveWorkbook()?.getActiveRange()?.getRange()
-        return range
-          ? `${range.startRow}:${range.startColumn}:${range.endRow}:${range.endColumn}`
-          : null
-      } catch {
-        return null
-      }
-    }
-    const onSelectionPointerDown = (event: PointerEvent): void => {
-      if (event.button !== 0 || gridHost?.classList.contains('sheet-shape-drawing')) return
-      setAiSelectionAskAnchor(null)
-      selectionDragRef.current = {
-        start: { x: event.clientX, y: event.clientY },
-        initialRangeKey: activeRangeKey(),
-        dragged: false,
-        selectionChanged: false,
-      }
-    }
-    const onSelectionPointerMove = (event: PointerEvent): void => {
-      const gesture = selectionDragRef.current
-      if (!gesture || gesture.dragged) return
-      gesture.dragged = isSelectionDrag(gesture.start, { x: event.clientX, y: event.clientY })
-    }
-    const finishSelectionPointer = (event: PointerEvent): void => {
-      const gesture = selectionDragRef.current
-      selectionDragRef.current = null
-      if (!gesture?.dragged || event.type === 'pointercancel') return
-      const pointer = { x: event.clientX, y: event.clientY }
-      selectionAskSettling = true
-      if (selectionAskRaf !== null) cancelAnimationFrame(selectionAskRaf)
-      selectionAskRaf = requestAnimationFrame(() => {
-        selectionAskRaf = null
-        if (editingCellRef.current || !gridHost) {
-          selectionAskSettling = false
-          return
-        }
-        try {
-          const bounds = runtime.univerAPI.getActiveWorkbook()?.getActiveRange()?.getRange()
-          if (
-            !bounds ||
-            (bounds.endRow === bounds.startRow && bounds.endColumn === bounds.startColumn)
-          ) {
-            setAiSelectionAskAnchor(null)
-            return
-          }
-          const finalRangeKey = activeRangeKey()
-          if (!gesture.selectionChanged && finalRangeKey === gesture.initialRangeKey) return
-          const viewport = gridHost.getBoundingClientRect()
-          setAiSelectionAskAnchor({
-            pointer,
-            bounds: {
-              left: viewport.left,
-              top: viewport.top,
-              right: viewport.right,
-              bottom: viewport.bottom,
-            },
-          })
-        } catch {
-          setAiSelectionAskAnchor(null)
-        } finally {
-          if (selectionAskSettleRaf !== null) cancelAnimationFrame(selectionAskSettleRaf)
-          selectionAskSettleRaf = requestAnimationFrame(() => {
-            selectionAskSettleRaf = null
-            selectionAskSettling = false
-          })
-        }
-      })
-    }
-    const cancelSelectionPointer = (): void => {
-      if (!selectionDragRef.current) return
-      selectionDragRef.current = null
-      setAiSelectionAskAnchor(null)
-    }
-    gridHost?.addEventListener('pointerdown', onSelectionPointerDown, true)
-    window.addEventListener('pointermove', onSelectionPointerMove, true)
-    window.addEventListener('pointerup', finishSelectionPointer, true)
-    window.addEventListener('pointercancel', finishSelectionPointer, true)
-    window.addEventListener('blur', cancelSelectionPointer)
     const selectionDisposable = runtime.univerAPI.addEvent(
       runtime.univerAPI.Event.SelectionChanged,
       () => {
-        if (selectionDragRef.current) selectionDragRef.current.selectionChanged = true
-        else if (!selectionAskSettling) setAiSelectionAskAnchor(null)
         refreshSelectionFormatRef.current()
         // A grid click ends any floating-visual selection.
         clearVisualSelection()
@@ -3878,10 +2531,8 @@ export function App({
     )
     return () => {
       unsubscribeMenu()
-      unsubscribeCloseSave()
       offThemeChanged?.()
       offDocThemeChanged?.()
-      offAuthorChanged?.()
       undoRedoSub.unsubscribe()
       findRevealDispose()
       gridGrowthDispose()
@@ -3895,7 +2546,6 @@ export function App({
       formulaTextDisposable.dispose()
       formulaBarAutosizeDisposable.dispose()
       fxButtonDisposable.dispose()
-      pickRelayDisposable.dispose()
       cachedValueDisposable.dispose()
       formulaNewlineDisposable.dispose()
       functionProbeDisposable.dispose()
@@ -3911,7 +2561,6 @@ export function App({
       arrowCollapseDisposable.dispose()
       sheetProtectionDisposable.dispose()
       ctrlDragFillDisposable.dispose()
-      redactMenuDisposable.dispose()
       contextSubmenuReopenDisposable.dispose()
       multiRowAutofitDisposable.dispose()
       cellContextMenuDisposable.dispose()
@@ -3953,13 +2602,6 @@ export function App({
       disposePictureTransfer()
       disposeCellImagePreview()
       disposeWheelZoom()
-      gridHost?.removeEventListener('pointerdown', onSelectionPointerDown, true)
-      window.removeEventListener('pointermove', onSelectionPointerMove, true)
-      window.removeEventListener('pointerup', finishSelectionPointer, true)
-      window.removeEventListener('pointercancel', finishSelectionPointer, true)
-      window.removeEventListener('blur', cancelSelectionPointer)
-      if (selectionAskRaf !== null) cancelAnimationFrame(selectionAskRaf)
-      if (selectionAskSettleRaf !== null) cancelAnimationFrame(selectionAskSettleRaf)
       if (visualInstallTimerRef.current) clearTimeout(visualInstallTimerRef.current)
       disposeVisuals(visualDisposablesRef.current)
       visualViewportKeyRef.current = ''
@@ -3978,113 +2620,6 @@ export function App({
   useEffect(() => {
     crossHighlightRef.current?.setVisible(crossHighlightVisible)
   }, [crossHighlightVisible])
-
-  function handleSend(
-    overrideInstruction?: string,
-    overrideAttachments?: readonly AttachmentMeta[],
-    retryIndex?: number,
-  ): void {
-    const instruction = (overrideInstruction ?? prompt).trim()
-    if (!instruction || aiBusy) return
-    runToolsRef.current = []
-    runUsageRef.current = undefined
-    // The message consumes the composer attachments: they ride along (echoed on the
-    // bubble, images multimodal, files via the files skill) and the composer clears.
-    // Retry passes the failed message's original set instead.
-    const sentAtts = overrideAttachments ?? attachmentsRef.current
-    // skills ride with this one message only: the chips clear like attachments do
-    const sentSkills = overrideInstruction ? [] : attachedSkillsRef.current
-    if (sentSkills.length > 0) setAttachedSkills([])
-    const agentConfigured = isAgentConfigured()
-    // Retry re-sends in place: drop the failed bubble and its error reply instead
-    // of stacking a "Not sent" duplicate above the resent copy.
-    const alreadyPersisted = retryIndex !== undefined && chat[retryIndex]?.persisted === true
-    if (retryIndex !== undefined) {
-      setChat((previous) => pruneFailedExchange(previous, retryIndex))
-    }
-    // A retried message was usually persisted by its original send — but that
-    // write is skipped while the chat refs are still resolving, so re-issue it
-    // then instead of dropping the question from the stored transcript.
-    // a retry quotes what the failed message quoted; a fresh send the live scope runAgent freezes for the run
-    const scope =
-      retryIndex !== undefined
-        ? chat[retryIndex]?.scope
-        : aiScope && !aiScopeDismissed
-          ? { label: scopeLabel(aiScope.a1, aiScope.columns ?? null, t) }
-          : undefined
-    const persisted =
-      alreadyPersisted || persistChatMessage('user', instruction, undefined, sentAtts, scope)
-    appendChat({
-      role: 'user',
-      text: instruction,
-      tools: [],
-      persisted,
-      ...(sentAtts.length > 0 ? { attachments: sentAtts } : {}),
-      ...(sentSkills.length > 0 ? { skills: sentSkills } : {}),
-      ...(scope ? { scope } : {}),
-    })
-    if (!overrideInstruction) setPrompt('')
-    // the deterministic path consumes the composer too — the bubble already echoes the set
-    if (!overrideAttachments && sentAtts.length > 0) {
-      const seen = new Set(sentAttachmentsRef.current.map((a) => a.path))
-      sentAttachmentsRef.current = [
-        ...sentAttachmentsRef.current,
-        ...sentAtts.filter((a) => !seen.has(a.path)),
-      ]
-      setAttachments([])
-    }
-    // real LLM configured → let the agent read context and propose operations;
-    // otherwise fall back to the local, deterministic regex planner
-    // (kept for offline use and for the fixed micro-DSL it still supports).
-    if (agentConfigured) {
-      runAgent(instruction, sentAtts, sentSkills)
-      return
-    }
-    const outcome = runDeterministicPlan(instruction)
-    setMessage(outcome.text)
-    appendChat({ role: 'assistant', text: outcome.text, tools: [], isError: outcome.isError })
-    persistChatMessage('assistant', outcome.text)
-  }
-
-  /// AI edits on imported workbooks preview against the live sheet, then
-  /// apply through Univer commands so they enter the edit journal exactly
-  /// like manual edits (and save with ⌘S).
-
-  /// A generated workbook shouldn't keep the pristine default sheet: when an
-  /// AI plan adds its own sheet(s) and never touches Sheet1, drop the empty
-  /// leftover so the first sheet the user sees is the generated one.
-  /// Returns the post-prune revision, or null when nothing was pruned.
-  function pruneEmptyDefaultSheet(plan: ChangePlan): number | null {
-    const addedSheet = plan.structuralChanges.some((change) => change.op.op === 'add_sheet')
-    if (!addedSheet) return null
-    const snapshot = adapterRef.current.getSnapshot()
-    if (snapshot.sheets.length < 2) return null
-    const defaultSheet = snapshot.sheets.find((sheet) => sheet.id === 'sheet-1')
-    if (!defaultSheet || defaultSheet.name !== 'Sheet1') return null
-    if (Object.keys(defaultSheet.cells).length > 0) return null
-    if ((defaultSheet.visuals?.length ?? 0) > 0) return null
-    const touched =
-      plan.cellChanges.some((change) => change.sheetId === 'sheet-1') ||
-      plan.formatChanges.some((change) => change.sheetId === 'sheet-1') ||
-      plan.sheetRenames.some((rename) => rename.sheetId === 'sheet-1') ||
-      plan.structuralChanges.some(
-        (change) => 'sheetId' in change.op && change.op.sheetId === 'sheet-1',
-      )
-    if (touched) return null
-    try {
-      const prunePlan = adapterRef.current.plan({
-        dslVersion: 1,
-        transactionId: `prune-default-sheet-${crypto.randomUUID()}`,
-        baseRevision: snapshot.revision,
-        summary: 'Remove the empty default sheet',
-        operations: [{ op: 'delete_sheet', sheetId: 'sheet-1' }],
-      })
-      return adapterRef.current.apply(prunePlan).revision
-    } catch {
-      // Best-effort cleanup: keep the empty sheet if the delete is rejected.
-      return null
-    }
-  }
 
   /// Demo-mode counterpart of queueVisualInstall: charts live in the adapter
   /// snapshot, so every grid rebuild (Apply/undo) and sheet switch re-installs
@@ -4126,241 +2661,6 @@ export function App({
   function queueDemoVisualInstallForActiveSheet(): void {
     const runtime = univerRef.current
     if (runtime) queueDemoVisualInstall(runtime)
-  }
-
-  /** Default worksheet names carry no content signal, so they never name the file. */
-  const DEFAULT_SHEET_NAME_RE = /^(sheet|工作表|ワークシート|シート)\s*\d*$/i
-
-  /** Waits for every plan submitted during one AI run, then persists all
-   * successful writes in one save. A canceled/failed Save As leaves both the
-   * journal and inline undo available. */
-  async function autoSaveCompletedAiRun(): Promise<void> {
-    const applies = aiApplyPromisesRef.current
-    aiApplyPromisesRef.current = []
-    if (applies.length === 0) return
-    const results = await Promise.all(applies)
-    if (!results.some(Boolean)) return
-    const state = lazyWorkbookRef.current
-    if (!state || journalSize(state.editJournal) === 0) return
-    // AutoSave off = the user decides when the file is written: the
-    // run's edits stay pending in the journal, so the offered Undo / ⌘Z keeps
-    // working (saving would reopen the session and reset the undo stack).
-    if (!autoSaveRef.current) {
-      setMessage(t('appAiChangesNotSaved'))
-      return
-    }
-    // AutoSave-driven write after an AI run: silent like the interval autosave.
-    await handleSave('save', true)
-    const after = lazyWorkbookRef.current
-    if (after && journalSize(after.editJournal) === 0) {
-      // Saving reopens the sidecar session and resets Univer's undo stack.
-      patchLastAssistant(({ autoApplied: _autoApplied, ...entry }) => entry)
-      // Sheets' analog of slides' deckName: propose the first AI-named sheet as
-      // the file name. The main process no-ops unless the file still carries the
-      // shell's auto-created untitled name, so user-chosen names are never touched.
-      const candidate = after.file.sheets
-        .map((sheet) => sheet.name.trim())
-        .find((name) => name.length > 0 && !DEFAULT_SHEET_NAME_RE.test(name))
-      if (candidate) {
-        try {
-          await window.desktopApi.autoRenameWorkbook(after.file.sessionId, candidate)
-        } catch {
-          // naming is best-effort; the save itself already succeeded
-        }
-      }
-    }
-  }
-
-  /**
-   * Auto-apply a just-proposed plan without the manual Apply click.
-   *
-   * All plans (content, format, and structural) commit immediately for a
-   * smoother, Google-Sheets-like flow — AI edits share the ribbon's command
-   * channel + edit journal, so undo (⌘Z / inline button) covers everything.
-   *
-   * The CAS/planStillMatches guards inside plan()/handleLazyApply are preserved
-   * — auto-apply never bypasses the "workbook changed since preview" check.
-   * When apply fails, the preview card stays up as a manual fallback.
-   */
-  async function autoApplySafePlan(plan: ChangePlan): Promise<ApplyOutcome> {
-    if (!(await commitActiveEditor())) {
-      return { ok: false, reason: t('appApplyTxFailed') }
-    }
-    const opCount =
-      plan.cellChanges.length +
-      plan.formatChanges.length +
-      plan.sheetRenames.length +
-      plan.structuralChanges.length
-    const state = lazyWorkbookRef.current
-    if (state) {
-      const undoDepthBefore = undoStackDepth(univerRef.current)
-      // Lazy path reads lazyPreviewRef (a ref, already set by the caller) —
-      // safe to invoke synchronously right after propose.
-      const apply = handleLazyApply(state).then((outcome) => {
-        if (outcome.ok) {
-          const undoSteps = Math.max(0, undoStackDepth(univerRef.current) - undoDepthBefore)
-          // Patch last assistant message with inline undo button.
-          patchLastAssistant((entry) => ({
-            ...entry,
-            autoApplied: {
-              opCount: (entry.autoApplied?.opCount ?? 0) + opCount,
-              undoSteps: (entry.autoApplied?.undoSteps ?? 0) + undoSteps,
-            },
-          }))
-        } else {
-          // No manual-apply entry point: the failure reason is already in the
-          // chat/status bar, and the preview card just collapses.
-          lazyPreviewRef.current = null
-          setPreview(null)
-        }
-        return outcome
-      })
-      aiApplyPromisesRef.current.push(apply.then((outcome) => outcome.ok))
-      return apply
-    }
-    // Non-lazy path: apply the passed plan directly (setPreview is async, so we
-    // cannot rely on the preview state within the same tick).
-    try {
-      const receipt = adapterRef.current.apply(plan)
-      const prunedRevision = pruneEmptyDefaultSheet(plan)
-      // Row/column shifts and new sheets can't be patched cell-by-cell into
-      // the existing Univer grid — rebuild the demo workbook from the snapshot.
-      if (plan.structuralChanges.length > 0 || prunedRevision !== null) {
-        loadSnapshotIntoUniver(
-          univerRef.current,
-          adapterRef.current.getSnapshot(),
-          'new-workbook',
-          'Untitled',
-        )
-        queueDemoVisualInstallForActiveSheet()
-      } else {
-        // Keep these programmatic writes off Univer's undo stack entirely:
-        // on blank workbooks the adapter owns AI-revision history (plans are
-        // built and validated against its snapshot), so undo must go through
-        // adapter.undo() as one step. A Univer-level undo item would revert
-        // the grid but leave the adapter unreverted — the next apply's
-        // full-snapshot syncUniver would then resurrect the undone content.
-        journalSuppression.active = true
-        try {
-          syncUniver(univerRef.current, adapterRef.current.getSnapshot())
-          const workbook = univerRef.current?.univerAPI.getActiveWorkbook()
-          for (const formatChange of plan.formatChanges) {
-            const worksheet = workbook?.getSheetBySheetId(formatChange.sheetId)
-            if (worksheet)
-              applyFormatPatchToRange(worksheet.getRange(formatChange.range), formatChange.format)
-          }
-        } finally {
-          journalSuppression.active = false
-        }
-        // The CommandExecuted chart↔data sync listener is gated on
-        // journalSuppression, so re-queue the sync for the cells this plan
-        // actually changed.
-        const chartSyncBounds = new Map<string, CellBounds>()
-        for (const change of plan.cellChanges) {
-          const cell = parseAddress(change.address)
-          const bounds = chartSyncBounds.get(change.sheetId)
-          if (bounds) {
-            bounds.startRow = Math.min(bounds.startRow, cell.row)
-            bounds.endRow = Math.max(bounds.endRow, cell.row)
-            bounds.startColumn = Math.min(bounds.startColumn, cell.column)
-            bounds.endColumn = Math.max(bounds.endColumn, cell.column)
-          } else {
-            chartSyncBounds.set(change.sheetId, {
-              startRow: cell.row,
-              endRow: cell.row,
-              startColumn: cell.column,
-              endColumn: cell.column,
-            })
-          }
-        }
-        for (const [sheetId, bounds] of chartSyncBounds) queueChartDataSync(sheetId, bounds)
-      }
-      const revision = prunedRevision ?? receipt.revision
-      setRevision(revision)
-      setPreview(null)
-      setMessage(t('appAppliedRevision', { revision }))
-      // Patch last assistant message to show inline undo button.
-      patchLastAssistant((entry) => ({
-        ...entry,
-        autoApplied: {
-          opCount: (entry.autoApplied?.opCount ?? 0) + opCount,
-          undoSteps: (entry.autoApplied?.undoSteps ?? 0) + 1,
-        },
-      }))
-      return Promise.resolve({ ok: true })
-    } catch (error: unknown) {
-      // Fall back to leaving the preview up so the user can Apply manually.
-      const reason = error instanceof Error ? error.message : t('appApplyTxFailed')
-      setMessage(reason)
-      return Promise.resolve({ ok: false, reason })
-    }
-  }
-
-  async function handleLazyApply(state: LazyWorkbookState): Promise<ApplyOutcome> {
-    const stored = lazyPreviewRef.current
-    const runtime = univerRef.current
-    if (!stored || !runtime) return { ok: false, reason: t('appApplyTxFailed') }
-    if (stored.sessionId !== state.file.sessionId) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-      setMessage(t('appPreviewOtherWorkbook'))
-      return { ok: false, reason: t('appPreviewOtherWorkbook') }
-    }
-    const workbook = runtime.univerAPI.getActiveWorkbook()
-    const worksheet = workbook?.getSheetBySheetId(stored.sheetId)
-    if (!workbook || !worksheet) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-      setMessage(t('appPreviewSheetGone'))
-      return { ok: false, reason: t('appPreviewSheetGone') }
-    }
-    const reportFailure = (reason: string): void => {
-      // The chat answer already promised the change — surface the failure
-      // there too, or it silently never lands on the canvas.
-      patchLastAssistant((entry) =>
-        entry.text.includes(reason)
-          ? entry
-          : {
-              ...entry,
-              text: `${entry.text}\n\n${t('appApplyFailed', { reason })}`,
-              isError: true,
-            },
-      )
-    }
-    let verified: ApplyOutcome | null = null
-    const outcome = await applyChangePlan(
-      stored.plan,
-      opExecutorContext(runtime, workbook, state),
-      {
-        verifyBeforeApply: () => {
-          if (lazyPreviewRef.current !== stored || lazyWorkbookRef.current !== state) {
-            verified = { ok: false, reason: t('appApplyTxFailed') }
-            return verified
-          }
-          // The reader throws when a planned sheet no longer exists — treat that as
-          // drift too (the plan can no longer apply as previewed).
-          let stillMatches: boolean
-          try {
-            stillMatches = planStillMatches(stored.plan, lazyWorkbookCellReader(workbook))
-          } catch {
-            stillMatches = false
-          }
-          if (stillMatches) return null
-          const reason = t('appWorkbookChangedSincePreview')
-          setMessage(reason)
-          reportFailure(reason)
-          verified = { ok: false, reason }
-          return verified
-        },
-      },
-    )
-    if (outcome.ok) {
-      lazyPreviewRef.current = null
-      setPreview(null)
-    } else if (outcome !== verified && outcome.reason) {
-      reportFailure(outcome.reason)
-    }
-    return outcome
   }
 
   /** Ribbon/dialog edits run the same executor as AI proposals (op-executor.ts). */
@@ -4423,20 +2723,14 @@ export function App({
   function handleUndo(steps?: number): void {
     const count =
       typeof steps === 'number' && Number.isFinite(steps) ? Math.max(1, Math.floor(steps)) : 1
-    const fromAiBatch = typeof steps === 'number'
-    const clearInlineUndo = () => {
-      if (!fromAiBatch) return
-      patchLastAssistant(({ autoApplied: _autoApplied, ...entry }) => entry)
-    }
     // Mirror ⌘Z: interactive grid edits live on Univer's undo stack even in a
     // blank in-memory workbook, so drain that stack first; the adapter's
-    // revision history (AI plan applies) is the fallback once it is empty.
+    // revision history (programmatic applies) is the fallback once it is empty.
     if (lazyWorkbookRef.current || univerHist.canUndo) {
       const api = univerRef.current?.univerAPI
       if (!api) return
       void (async () => {
         for (let step = 0; step < count; step += 1) await api.undo()
-        clearInlineUndo()
       })()
       return
     }
@@ -4453,9 +2747,7 @@ export function App({
       )
       queueDemoVisualInstallForActiveSheet()
       setRevision(receipt.revision)
-      setPreview(null)
       setMessage(t('appUndoCommitted', { revision: receipt.revision }))
-      clearInlineUndo()
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : t('appUndoFailed'))
     }
@@ -4465,77 +2757,6 @@ export function App({
   /// (the demo adapter has no redo, matching the menu's behavior).
   function handleRedo(): void {
     void univerRef.current?.univerAPI.redo()
-  }
-
-  function disposePageBreakLayers(sheetId: string): void {
-    const layers = pageBreakLayersRef.current.get(sheetId) ?? []
-    pageBreakLayersRef.current.delete(sheetId)
-    for (const layer of layers) {
-      try {
-        layer.dispose()
-      } catch {
-        // The float layer already died with a closed workbook.
-      }
-    }
-  }
-
-  /// (Re)installs the overlay for one sheet that has the preview enabled.
-  function installPageBreakLayers(sheetId: string): void {
-    const runtime = univerRef.current
-    const state = lazyWorkbookRef.current
-    const worksheet = runtime?.univerAPI.getActiveWorkbook()?.getSheetBySheetId(sheetId)
-    if (!runtime || !state || !worksheet) return
-    const breaks = effectivePageBreaks(state, sheetId)
-    if (breaks === null) return
-    disposePageBreakLayers(sheetId)
-    pageBreakIdRef.current += 1
-    const fileSheet = state.file.sheets.find((sheet) => sheet.id === sheetId)
-    const ops = state.editJournal.structuralOps.get(sheetId) ?? []
-    pageBreakLayersRef.current.set(
-      sheetId,
-      installPageBreakPreview(
-        runtime,
-        worksheet,
-        state.editJournal.pageSetup.get(sheetId) ?? {},
-        breaks,
-        {
-          rows: (fileSheet?.rowCount ?? 0) + netAxisDelta(ops, 'row'),
-          columns: (fileSheet?.columnCount ?? 0) + netAxisDelta(ops, 'column'),
-        },
-        `page-break-${pageBreakIdRef.current}`,
-      ),
-    )
-  }
-
-  function refreshPageBreakPreview(): void {
-    for (const sheetId of pageBreakPreviewSheets) installPageBreakLayers(sheetId)
-  }
-
-  function togglePageBreakPreview(): void {
-    const state = lazyWorkbookRef.current
-    const worksheet = univerRef.current?.univerAPI.getActiveWorkbook()?.getActiveSheet()
-    const sheetId = worksheet?.getSheetId()
-    if (!state || !sheetId) {
-      setMessage(t('appPageSetupNeedsFile'))
-      return
-    }
-    if (pageBreakPreviewSheets.has(sheetId)) {
-      disposePageBreakLayers(sheetId)
-      setPageBreakPreviewSheets((sheets) => {
-        const next = new Set(sheets)
-        next.delete(sheetId)
-        return next
-      })
-      setMessage(t('appPageBreakPreviewOff'))
-      return
-    }
-    if (effectivePageBreaks(state, sheetId) === null) {
-      setMessage(t('appBreaksNeedIndexed'))
-      return
-    }
-    installPageBreakLayers(sheetId)
-    setPageBreakPreviewSheets((sheets) => new Set(sheets).add(sheetId))
-    setMessage(t('appPageBreakPreviewOn'))
   }
 
   /**
@@ -4579,9 +2800,7 @@ export function App({
       setChartDialog,
       setSymbolDialogOpen,
       openCellsDialog: setCellsDialog,
-      setScreenshotDialogOpen,
       setIconsDialogOpen,
-      setEquationDialogOpen,
       openRecommendedCharts: () => {
         void handleRecommendedChartsImpl(visualContext()).then((result) => {
           if (result) setRecommendedCharts(result)
@@ -4594,20 +2813,12 @@ export function App({
       visualArrangeContext,
       pivotContext,
       handlePageLayoutCommand: (rest) => handlePageLayoutCommandImpl(pageLayoutContext(), rest),
-      handleExportPdf: () => handleExportPdfImpl(pageLayoutContext()),
     }
   }
 
   const functionArgumentsHost = useMemo(
     () =>
-      createFunctionArgumentsHost(
-        () => univerRef.current,
-        () => t('appWorkbookNotReady'),
-        () => {
-          const file = lazyWorkbookRef.current?.file
-          return file && !file.needsSaveAs && file.csvPath === undefined ? file.sessionId : null
-        },
-      ),
+      createFunctionArgumentsHost(() => univerRef.current, () => t('appWorkbookNotReady')),
     [],
   )
   const isCellEditing = useCallback((): boolean => {
@@ -4661,112 +2872,13 @@ export function App({
     )
   }
 
-  // The workbook's refreshable web queries: the list is read from the package
-  // (the renderer never scans it) and each entry carries the sheet and range
-  // its rows fill — the destination Excel writes, not the queryTable's own.
-  useEffect(() => {
-    const sessionId = workbookFile?.sessionId
-    if (!sessionId) {
-      setQueryConnections([])
-      return
-    }
-    let cancelled = false
-    void window.desktopApi
-      .listWorkbookConnections({ sessionId })
-      .then((result) => {
-        if (!cancelled) setQueryConnections(result.connections)
-      })
-      .catch(() => {
-        if (!cancelled) setQueryConnections([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [workbookFile?.sessionId])
-
-  /**
-   * Refresh one query: main resolves the URL from the workbook and fetches the
-   * table through the SSRF gate, then the plan turns it into grid values for
-   * the range the query fills. Numbers go in as numbers (Excel's web query
-   * does the same — a SUM over a text copy would read zeros), and the whole
-   * writable region is written so cells a shrinking answer no longer fills are
-   * cleared instead of keeping stale rows. A ListObject's header cells are
-   * preserved: Excel repairs the whole table when a header cell differs from
-   * its column name, so the fetched page's header row never overwrites them.
-   */
-  async function refreshQueryConnection(connectionId: string): Promise<void> {
-    const connection = queryConnections.find((c) => c.id === connectionId)
-    const sessionId = workbookFile?.sessionId
-    const runtime = univerRef.current
-    if (!connection || !sessionId || !runtime) return
-    setMessage(t('appQueryRefreshing', { name: connection.name }))
-    try {
-      const table = await window.desktopApi.refreshWorkbookConnection({
-        sessionId,
-        connectionId: connection.id,
-      })
-      const target = a1RangeToTarget(connection.range, connection.sheetName)
-      const worksheet = target
-        ? runtime.univerAPI.getActiveWorkbook()?.getSheetByName(connection.sheetName)
-        : undefined
-      if (!target || !worksheet) throw new Error('The query has no target range.')
-      if (table.headers.length === 0 && table.rows.length === 0) {
-        throw new Error('The query returned no rows.')
-      }
-      const plan = planTableRefresh(target, table, {
-        headerRows: connection.headerRows,
-        totalsRows: connection.totalsRows,
-        hasTable: connection.hasTable,
-      })
-      // Only the writable region is touched: a ListObject's header row and
-      // totals row stay exactly as they were.
-      if (plan.values.length > 0) {
-        const matrix: ICellData[][] = plan.values.map((row) =>
-          row.map((value) => ({ v: value, f: null, si: null, p: null })),
-        )
-        worksheet
-          .getRange(plan.startRow, target.startColumn, plan.values.length, target.width)
-          .setValues(matrix)
-      }
-      // Growing the destination range is out of scope: say so rather than drop
-      // the extra rows silently.
-      if (plan.droppedRows > 0) {
-        setMessage(
-          t('appQueryRefreshedClipped', {
-            name: connection.name,
-            rows: table.rows.length,
-            dropped: plan.droppedRows,
-          }),
-        )
-      } else {
-        setMessage(t('appQueryRefreshed', { name: connection.name, rows: table.rows.length }))
-      }
-    } catch {
-      setMessage(t('appQueryRefreshFailed', { name: connection.name }))
-    }
-  }
-
   function handleRibbonCommand(command: string): void {
-    if (command.startsWith('query-refresh:')) {
-      void refreshQueryConnection(command.slice('query-refresh:'.length))
-      return
-    }
-    if (command === 'workbook-change-password') {
-      if (lazyWorkbookRef.current?.file.passwordProtected) {
-        setChangeWorkbookPasswordOpen(true)
-      }
-      return
-    }
     if (command === 'watch-window') {
       setWatchOpen((open) => !open)
       return
     }
     if (command === 'external-links-panel') {
       setLinksOpen((open) => !open)
-      return
-    }
-    if (command === 'toggle-page-break-preview') {
-      togglePageBreakPreview()
       return
     }
     if (command === 'toggle-cross-highlight') {
@@ -4781,23 +2893,6 @@ export function App({
       document.getElementById('univer-container')?.classList.toggle('formula-bar-hidden', !next)
       setFormulaBarVisible(next)
       setMessage(t(next ? 'appFormulaBarShown' : 'appFormulaBarHidden'))
-      return
-    }
-    if (command === 'spell-check') {
-      // the preference gates the whole feature: F7 and the Review button both
-      // land here, so a disabled checker is one consistent answer everywhere
-      if (!spellcheckOn) {
-        setMessage(t('appSpellOff'))
-        return
-      }
-      setSpellDialogOpen(true)
-      return
-    }
-    if (command === 'spellcheck-toggle') {
-      const next = !spellcheckOn
-      setSpellcheckOn(next)
-      storeSpellcheckEnabled(next)
-      setMessage(t(next ? 'appSpellOn' : 'appSpellOff'))
       return
     }
     const runtime = univerRef.current
@@ -4871,79 +2966,6 @@ export function App({
     }
   }
 
-  /// Moves the run's scope in the ref and in state together: the ref is read
-  /// mid-run by getActiveSheetInfo, the state is what the chip renders, and a
-  /// chip fed from anything else would drift from the run it describes.
-  function setAiRunScope(scope: FrozenSelection | null | undefined): void {
-    aiRunScopeRef.current = scope
-    setAiRunScopeState(scope)
-  }
-
-  /// Data extent of a sheet, floored by the file's own used range: cells stream
-  /// into Univer lazily, so getLastRow/getLastColumn undercount a sheet the user
-  /// has not scrolled through yet. The floor comes from the same screen-space
-  /// extent the AI's workbook context reports, so the chip's range and the data
-  /// area the model is told about survive inserted or deleted rows together.
-  function sheetDataExtent(worksheet: UniverWorksheet): DataExtent {
-    const state = lazyWorkbookRef.current
-    const fileExtent = state ? lazySheetScreenExtent(state, worksheet.getSheetId()) : null
-    return {
-      lastRow: Math.max(worksheet.getLastRow(), (fileExtent?.rows ?? 0) - 1),
-      lastColumn: Math.max(worksheet.getLastColumn(), (fileExtent?.columns ?? 0) - 1),
-    }
-  }
-
-  /// Nulls the key too, so re-selecting the same range later still re-arms the
-  /// chip instead of being mistaken for an unchanged selection.
-  function clearAiScope(): void {
-    aiScopeKeyRef.current = null
-    setAiScope(null)
-    setAiScopeDismissed(false)
-  }
-
-  /// Keeps the AI composer's scope chip in sync with the grid selection. Only a
-  /// multi-cell range becomes a scope; moving to a different range re-arms a
-  /// chip the user had dismissed, so a fresh drag means a fresh scope.
-  function refreshAiScope(range: NonNullable<ReturnType<ActiveWorkbook['getActiveRange']>>): void {
-    const worksheet = univerRef.current?.univerAPI.getActiveWorkbook()?.getActiveSheet()
-    const sheetId = worksheet?.getSheetId()
-    let bounds: IRange
-    try {
-      bounds = range.getRange()
-    } catch {
-      // a disposing workbook or a stale cross-sheet range can race the read
-      return
-    }
-    const multiCell = bounds.endRow > bounds.startRow || bounds.endColumn > bounds.startColumn
-    if (!multiCell || !worksheet || !sheetId) {
-      clearAiScope()
-      return
-    }
-    let scope: FrozenSelection
-    try {
-      const extent = sheetDataExtent(worksheet)
-      const clamped = clampBoundsToExtent(bounds, extent, {
-        rowCount: worksheet.getMaxRows(),
-        columnCount: worksheet.getMaxColumns(),
-      })
-      // Display text, so a date header names itself rather than its serial.
-      const columns = columnScopeHeaders(clamped, extent, (column) =>
-        String(worksheet.getRange(0, column, 1, 1).getDisplayValue() ?? ''),
-      )
-      scope = { a1: boundsToA1(clamped), sheetId, ...(columns ? { columns } : {}) }
-    } catch {
-      // same disposing-workbook race as above, now over the extent/header reads
-      return
-    }
-    // Keyed on the clamped range: two whole-column drags of different heights
-    // are the same scope, and re-selecting one must not re-arm a dismissed chip.
-    const key = `${sheetId}!${scope.a1}`
-    if (aiScopeKeyRef.current === key) return
-    aiScopeKeyRef.current = key
-    setAiScope(scope)
-    setAiScopeDismissed(false)
-  }
-
   refreshSelectionFormatRef.current = () => {
     let range: ReturnType<ActiveWorkbook['getActiveRange']> | undefined
     try {
@@ -4959,7 +2981,6 @@ export function App({
       setSelectedTable(null)
       setActiveCellA1('')
       setPivotSelectionKey(null)
-      clearAiScope()
       return
     }
     setActiveCellA1(`${columnLetter(range.getColumn())}${range.getRow() + 1}`)
@@ -4968,7 +2989,6 @@ export function App({
     setSelectedTable((previous) =>
       selectedTableEquals(previous, tableEcho) ? previous : tableEcho,
     )
-    refreshAiScope(range)
     let pattern: string
     try {
       pattern = range.getNumberFormat()
@@ -4995,11 +3015,10 @@ export function App({
 
   async function openLazyWorkbook(
     opened: WorkbookFile,
-    opts?: { continueChat?: boolean; onInitialRangeLoaded?: () => void },
+    opts?: { onInitialRangeLoaded?: () => void },
   ): Promise<boolean> {
     if (!(await commitActiveEditor())) return false
     await untilCellFontsLoaded(registerCellFontAliases(workbookFontFamilies(opened)))
-    if (opts?.continueChat) chatContinuesRef.current = true
     const selected: WorkbookFile = {
       ...opened,
       visuals: opened.visuals.map((visual) =>
@@ -5027,9 +3046,6 @@ export function App({
     }
     disposeVisuals(demoVisualDisposablesRef.current)
     demoVisualDisposablesRef.current = []
-    // The preview's float layers belong to the closed workbook's sheets.
-    for (const sheetId of [...pageBreakLayersRef.current.keys()]) disposePageBreakLayers(sheetId)
-    setPageBreakPreviewSheets(new Set())
     const state: LazyWorkbookState = {
       file: selected,
       generation: Date.now(),
@@ -5100,43 +3116,6 @@ export function App({
     }
     lazyWorkbookRef.current = state
     void loadRowOutlines(state, lazyWorkbookRef)
-    // The cells the reader withheld, read once per open: every read tool asks
-    // about cells, so a lazy read would either cost an archive read per call or
-    // leave a window in which the model sees the real values. The next workbook
-    // starts from nothing until its own read lands, and a part that exists but
-    // cannot be read withholds everything rather than nothing — see
-    // ai/redact-load.ts.
-    redactionIndexRef.current = null
-    redactionStatesRef.current = []
-    loadedRedactionStatesRef.current = null
-    void window.desktopApi
-      .readWorkbookRedactions({ sessionId: selected.sessionId })
-      .then((result) => {
-        // A superseded session's answer must not install its marks.
-        if (lazyWorkbookRef.current !== state) return
-        const session = redactionSessionFor(result, getActiveSheetInfo().sheets, t)
-        redactionIndexRef.current = session.index
-        redactionStatesRef.current = result.status === 'ok' ? result.states : []
-        watchStructuralEditsForMarks()
-        // What the file holds is the baseline a later edit is measured against;
-        // an unreadable part has no baseline, and saves leave it in place.
-        loadedRedactionStatesRef.current =
-          result.status === 'unreadable' ? null : redactionStatesRef.current
-        const redactionMessage = session.error ?? session.notice
-        if (redactionMessage !== null) setMessage(redactionMessage)
-      })
-      .catch((error: unknown) => {
-        if (lazyWorkbookRef.current !== state) return
-        // The read itself failed, so the marks are unknown — the same state a
-        // damaged part produces, and the same answer: withhold, and say so.
-        const reason = error instanceof Error ? error.message : String(error)
-        redactionIndexRef.current = redactionSessionFor(
-          { status: 'unreadable', error: reason },
-          [],
-          t,
-        ).index
-        setMessage(reason)
-      })
     // Pivot definitions load eagerly so refresh (a synchronous apply step)
     // never waits on IPC. Best effort: a failed parse just disables refresh.
     // Once they are in, the file's own slicer/timeline controls restore
@@ -5176,10 +3155,6 @@ export function App({
       ;(window as unknown as Record<string, unknown>).__lazyState = state
       ;(window as unknown as Record<string, unknown>).__univerRuntime = univerRef.current
       ;(window as unknown as Record<string, unknown>).__univerAPI = univerRef.current?.univerAPI
-      // Drivers exercise the AI tool layer (get_workbook_context /
-      // aggregate_range / propose_operations) without an LLM in the loop.
-      ;(window as unknown as Record<string, unknown>).__workbookSkill =
-        createWorkbookSkill(sheetsSkillDeps())
       // Ribbon commands by wire name, so UI-path drivers need no DOM clicks.
       ;(window as unknown as Record<string, unknown>).__ribbonCommand = handleRibbonCommand
     }
@@ -5208,8 +3183,6 @@ export function App({
       }
     }
     setRevision(0)
-    setPreview(null)
-    lazyPreviewRef.current = null
     setPendingEdits(0)
     // Slicers/timelines belong to the previous workbook's session only;
     // switching files invalidates them. The file's own controls are restored
@@ -5414,29 +3387,6 @@ export function App({
         finishOpening()
         return
       }
-      if ('passwordRequired' in selected) {
-        const encryptedPath = selected.path
-        let passwordError: string | null = null
-        let decryptedWorkbook: WorkbookFile | null = null
-        while (decryptedWorkbook === null) {
-          const password = await requestEncryptedWorkbookPassword(passwordError)
-          if (password === null) break
-          try {
-            decryptedWorkbook = await window.desktopApi.openEncryptedWorkbook(
-              encryptedPath,
-              password,
-            )
-          } catch (error: unknown) {
-            passwordError = error instanceof Error ? error.message : t('appOpenFailed')
-          }
-        }
-        selected = decryptedWorkbook
-        if (!selected) {
-          setMessage(t('appOpenCanceled'))
-          finishOpening()
-          return
-        }
-      }
       if (!(await openLazyWorkbook(selected, { onInitialRangeLoaded: finishOpening }))) {
         finishOpening()
         setMessage(t('appOpenFailed'))
@@ -5451,90 +3401,18 @@ export function App({
   }
 
   async function handleSave(
-    mode: 'save' | 'save-as' | 'recovery',
+    mode: 'save' | 'save-as',
     quiet = false,
     explicitTarget?: { path: string; overwrite: boolean },
-    defaultName?: string,
   ): Promise<SaveOutcome> {
-    // Manual and AI saves take the same gate as the timers: a recovery copy
-    // written beside a real save would outlive it as a phantom Restore prompt.
+    // Manual saves take the same gate as the autosave timer.
     const gate = saveGateRef.current
-    if (mode === 'recovery' && gate.busy) return { ok: false }
     return gate.run(async () => {
       if (!(await commitActiveEditor())) return { ok: false }
-      return handleSaveImpl(saveContext(), mode, quiet, explicitTarget, defaultName)
+      return handleSaveImpl(saveContext(), mode, quiet, explicitTarget)
     })
   }
-  async function updateWorkbookPassword(newPassword: string): Promise<string | null> {
-    try {
-      return await saveGateRef.current.run(async () => {
-        if (!(await commitActiveEditor())) return t('appSaveFailed')
-        const beforeSave = lazyWorkbookRef.current
-        if (!beforeSave?.file.passwordProtected) {
-          return t('appWorkbookNotPasswordProtected')
-        }
 
-        // Commit all current sheet edits before changing the package password.
-        // The sidecar snapshot stays plaintext for this session, while the
-        // main process updates the encrypted file atomically on disk.
-        const saved = await handleSaveImpl(saveContext(), 'save', true)
-        const current = lazyWorkbookRef.current
-        if (!current) return t('appWorkbookNotReady')
-        if (!saved.ok && journalSize(current.editJournal) > 0) {
-          return saved.error ?? t('appSaveFailed')
-        }
-        if (!current.file.passwordProtected) {
-          return t('appWorkbookNotPasswordProtected')
-        }
-
-        const result = await window.desktopApi.updateWorkbookPassword(
-          current.file.sessionId,
-          newPassword,
-        )
-        const file: WorkbookFile = { ...current.file, ...result }
-        lazyWorkbookRef.current = { ...current, file }
-        setWorkbookFile(file)
-        setMessage(t('appWorkbookPasswordChanged'))
-        return null
-      })
-    } catch (error: unknown) {
-      return error instanceof Error ? error.message : t('appSaveFailed')
-    }
-  }
-
-  /**
-   * Ask the model to name this workbook, on request, then open Save As with its
-   * answer prefilled.
-   *
-   * The stem goes into the dialog rather than renaming the file on disk: a
-   * workbook that may be open in another window, referenced from a note, or
-   * synced is not something to move behind the reader's back. A declined or
-   * empty answer leaves the dialog on the workbook's current name, so this is a
-   * no-op rather than a failure.
-   */
-  async function nameWithAi(): Promise<void> {
-    const stem = await modelSaveAsName(readContext())
-    if (!stem) return
-    await handleSave('save-as', false, undefined, stem)
-  }
-  closeSaveRef.current = async () => {
-    if (!(await commitActiveEditor())) {
-      window.desktopApi?.reportCloseSaveResult?.(false)
-      return
-    }
-    const state = lazyWorkbookRef.current
-    if (!state || journalSize(state.editJournal) === 0) {
-      window.desktopApi?.reportCloseSaveResult?.(true)
-      return
-    }
-    await handleSave('save')
-    // handleSave swallows errors into the status bar; a drained journal
-    // (fresh state after openLazyWorkbook) is the success signal.
-    const after = lazyWorkbookRef.current
-    window.desktopApi?.reportCloseSaveResult?.(
-      after === null || journalSize(after.editJournal) === 0,
-    )
-  }
   function sortColumnOptions(): { label: string; colIndex: number }[] {
     const range = univerRef.current?.univerAPI.getActiveWorkbook()?.getActiveRange()
     if (!range) return []
@@ -5550,15 +3428,9 @@ export function App({
     if (action !== 'open' && (openingWorkbook || workbookOpeningRef.current)) return
     if (action === 'open') {
       void handleInspectWorkbook()
-    } else if (action === 'print') {
-      void openPrintPreviewHost(pageLayoutContext()).then(setPrintHost)
-    } else if (action === 'export-pdf') {
-      void handleExportPdfImpl(pageLayoutContext())
-    } else if (action === 'export-csv') {
-      void handleExportCsvImpl(csvExportContext())
     } else if (action === 'undo' || action === 'redo') {
-      // The shell's own text fields (AI prompt, dialog inputs) keep native
-      // text undo; everywhere else ⌘Z means workbook history.
+      // The shell's own text fields (dialog inputs) keep native text undo;
+      // everywhere else ⌘Z means workbook history.
       const active = document.activeElement
       if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
         document.execCommand(action)
@@ -5573,127 +3445,6 @@ export function App({
   }
   handleSaveRef.current = handleSave
 
-  // MCP visible-grid session (planning/mcp-server.md phase 2): the shell pushes
-  // read/apply/save commands; they run through the same executors the built-in
-  // AI uses. Handlers go through a ref so the bridge never sees stale closures.
-  mcpSheetHandlersRef.current = {
-    hasWorkbook: () =>
-      univerRef.current?.univerAPI.getActiveWorkbook() != null && lazyWorkbookRef.current != null,
-    context: () => getActiveSheetInfo(),
-    // The MCP read is machine-facing: `value` is the model value, not the
-    // rendered text a number format or a narrow column produced. The rendered
-    // text rides along as `display` when the two differ, so a caller can still
-    // see what the user sees (see modelCellValue).
-    readCells: (addresses, sheetId) => {
-      const cells = readCellsImpl(readContext(), addresses, sheetId)
-      return Object.fromEntries(
-        Object.entries(cells).map(([address, cell]) => {
-          const value = modelCellValue(cell)
-          return [
-            address,
-            {
-              value,
-              ...(cell.value !== value ? { display: cell.value } : {}),
-              ...(cell.formula === undefined ? {} : { formula: cell.formula }),
-            },
-          ]
-        }),
-      )
-    },
-    sheets: () => getActiveSheetInfo().sheets.map((sheet) => ({ id: sheet.id, name: sheet.name })),
-    // The user is watching this grid, so an edit to a sheet the view is not
-    // showing would otherwise land invisibly. Switch the tab and bring the
-    // first cell of the batch (or the sheet's top-left) into view — the same
-    // jump the find bar performs on a hit.
-    focusSheet: (sheetId, address) => {
-      const runtime = univerRef.current
-      if (!runtime) return
-      const workbook = runtime.univerAPI.getActiveWorkbook()
-      const worksheet = workbook?.getSheetBySheetId(sheetId)
-      if (!workbook || !worksheet) return
-      focusWorksheet(worksheet, () => {
-        if (worksheet.getSheetId() !== workbook.getActiveSheet()?.getSheetId()) {
-          workbook.setActiveSheet(worksheet)
-        }
-      })
-      if (address === undefined) return
-      try {
-        const { row, column } = parseAddress(address)
-        void ensureLazyRangeLoaded(
-          runtime,
-          lazyWorkbookRef,
-          worksheet,
-          { startRow: row, endRow: row, startColumn: column, endColumn: column },
-          setMessage,
-        )
-        worksheet.getRange(row, column, 1, 1).activate()
-      } catch {
-        /* the address is malformed, or the workbook closed mid-jump */
-      }
-    },
-    applyOps: async (ops, dryRun) => {
-      const runtime = univerRef.current
-      const state = lazyWorkbookRef.current
-      const workbook = runtime?.univerAPI.getActiveWorkbook()
-      if (!runtime || !state || !workbook) {
-        return { ok: false, reason: t('appNoWorkbookOpen') }
-      }
-      if (dryRun) {
-        try {
-          const plan = planFromOps(ops, workbook, 'mcp')
-          return {
-            ok: true,
-            dryRun: true,
-            structuralChanges: plan.structuralChanges.map((change) => change.label),
-            formatChanges: plan.formatChanges.map((change) => change.label),
-            cellChanges: plan.cellChanges
-              .slice(0, 100)
-              .map((change) => ({ address: change.address, after: change.after.value })),
-            cellChangeCount: plan.cellChanges.length,
-            sheetRenames: plan.sheetRenames.map((rename) => `${rename.before} -> ${rename.after}`),
-          }
-        } catch (error: unknown) {
-          return { ok: false, reason: error instanceof Error ? error.message : String(error) }
-        }
-      }
-      const outcome = await runUiOps(ops)
-      if (!outcome.ok) return outcome
-      // A formula's text lands synchronously but its result is computed
-      // asynchronously, so an immediate read of the cells this batch targeted
-      // would show null and an agent could read that as a failed edit. Report
-      // the computed values with the result (see formula-values.ts).
-      const targets = formulaTargetsFromOps(ops)
-      if (targets.length === 0) return outcome
-      const values = await awaitFormulaValues(targets, (addresses, sheetId) =>
-        readCellsImpl(readContext(), [...addresses], sheetId),
-      )
-      // Remember which cells settled so the next save can write a real cached
-      // <v> for them (the overlay skips the very cells a batch just wrote); the
-      // value itself is read live at save time, see formula-values.ts.
-      for (const cell of values) {
-        rememberFormulaValue(cell.sheetId, cell.address, { formula: cell.formula ?? '' })
-      }
-      return { ...outcome, formulaValues: values }
-    },
-    saveTo: async (path, overwrite) => handleSave('save-as', true, { path, overwrite }),
-  }
-  useEffect(() => {
-    const handlers = mcpSheetHandlersRef
-    return installSheetsMcpBridge({
-      hasWorkbook: () => handlers.current?.hasWorkbook() ?? false,
-      context: () => handlers.current?.context(),
-      readCells: (addresses, sheetId) => handlers.current?.readCells(addresses, sheetId) ?? {},
-      sheets: () => handlers.current?.sheets() ?? [],
-      focusSheet: (sheetId, address) => handlers.current?.focusSheet(sheetId, address),
-      applyOps: async (ops, dryRun) =>
-        (await handlers.current?.applyOps(ops, dryRun)) ?? { ok: false, reason: 'not ready' },
-      saveTo: async (path, overwrite) =>
-        (await handlers.current?.saveTo(path, overwrite)) ?? {
-          ok: false,
-          error: 'the spreadsheet is not ready',
-        },
-    })
-  }, [])
   /// Re-renders the floating visuals after a journal mutation (edits and
   /// their undo/redo closures share it).
   function refreshLazyVisuals(state: LazyWorkbookState): void {
@@ -5805,7 +3556,6 @@ export function App({
           ? worksheet.getSheet().getConfig().rowHeader.hidden !== BooleanNumber.TRUE
           : true),
       rightToLeft: journalState.rightToLeft ?? (worksheet ? sheetIsRightToLeft(worksheet) : false),
-      pageBreakPreview: worksheet ? pageBreakPreviewSheets.has(worksheet.getSheetId()) : false,
     }
   })()
 
@@ -5852,30 +3602,9 @@ export function App({
     }
   })()
 
-  // genoffice CLI (`open --range`, `selection`): the shell evaluates this hook
-  useEffect(() => {
-    ;(window as unknown as Record<string, unknown>).__genofficeControl = (req: ControlRequest) =>
-      handleSheetsControl(
-        req,
-        univerRef.current?.univerAPI.getActiveWorkbook(),
-        lazyWorkbookRef.current !== null,
-      )
-  })
-
-  const aiScopeChip = resolveScopeChip(aiRunScope, aiScope, aiScopeDismissed)
-
   return (
     <>
       <ToastHost />
-      {recoveryPrompt && (
-        <RecoveryDialog
-          prompt={recoveryPrompt}
-          onChoose={(restore) => {
-            setRecoveryPrompt(null)
-            window.desktopApi?.replyRecoveryPrompt?.(restore)
-          }}
-        />
-      )}
       {fullLoadPrompt && (
         <div className="dialog-backdrop">
           <div
@@ -5981,14 +3710,9 @@ export function App({
       )}
       <ExcelShell
         openingWorkbook={openingWorkbook}
-        prompt={prompt}
-        preview={preview}
         sheetHasContent={sheetHasContent}
         pageLayout={activePageLayout}
-        printHost={printHost}
-        onClosePrint={() => setPrintHost(null)}
         calcManual={calcManual}
-        queryConnections={queryConnections}
         showFormulas={activeShowFormulas}
         onGoalSeek={(setCell, toValue, byCell) => {
           const runtime = univerRef.current
@@ -6019,33 +3743,7 @@ export function App({
         emptyCsvNotice={emptyCsvNotice}
         onOpenWorkbook={() => void handleInspectWorkbook()}
         onDismissEmptyCsvNotice={() => setEmptyCsvNotice(false)}
-        aiBusy={aiBusy}
-        {...(sessionUsage !== undefined ? { sessionUsage } : {})}
-        chat={chat}
-        historicChat={historicChat}
-        attachments={attachments}
-        attachedSkills={attachedSkills}
-        onToggleSkill={toggleSkill}
-        attachNotice={attachNotice}
-        onPickAttachments={() => void handlePickAttachments()}
-        onAddAttachmentPaths={(paths) => void handleAddAttachmentPaths(paths)}
-        onAddPastedImage={(data, ext) => void handleAddPastedImage(data, ext)}
-        onRemoveAttachment={handleRemoveAttachment}
-        onPromptChange={setPrompt}
-        onSend={handleSend}
-        onStop={handleStopAgent}
-        onNewChat={handleNewChat}
         onUndo={handleUndo}
-        aiScopeRange={aiScopeChip.range}
-        aiScopeColumns={aiScopeChip.columns ?? null}
-        aiScopeLocked={aiScopeChip.locked}
-        aiSelectionAskAnchor={aiSelectionAskAnchor}
-        onAiSelectionAskDismiss={() => setAiSelectionAskAnchor(null)}
-        onAiScopeDismiss={() => {
-          setAiScopeDismissed(true)
-          setAiSelectionAskAnchor(null)
-        }}
-        onAiCitation={handleAiCitation}
         canUndo={univerHist.canUndo || (!lazyWorkbookRef.current && adapterRef.current.canUndo)}
         canRedo={univerHist.canRedo}
         onCommand={handleRibbonCommandFromRibbon}
@@ -6057,7 +3755,6 @@ export function App({
         onSave={() => void handleSave('save')}
         canSaveAs={workbookFile !== null}
         onSaveAs={() => void handleSave('save-as')}
-        onNameWithAi={() => void nameWithAi()}
         onRedo={handleRedo}
         autoSave={autoSave}
         onAutoSaveChange={setAutoSave}
@@ -6082,7 +3779,6 @@ export function App({
         sheetTabActions={sheetTabActions}
         onGetWorkbookProtection={workbookProtectionEcho}
         passwordProtected={workbookFile?.passwordProtected === true}
-        spellcheckOn={spellcheckOn}
         formulaBarVisible={formulaBarVisible}
         crossHighlightVisible={crossHighlightVisible}
         onGetProtectedRanges={protectedRangesSnapshot}
@@ -6103,11 +3799,6 @@ export function App({
         activeCellA1={activeCellA1}
         onGoToReference={(ref) => goToReferenceImpl(dataToolsContext(), ref)}
         onListDefinedNames={() => listDefinedNamesImpl(dataToolsContext())}
-        onReadWorkbookQueries={() =>
-          workbookFile
-            ? window.desktopApi.readWorkbookQueries({ sessionId: workbookFile.sessionId })
-            : Promise.resolve([])
-        }
         onReadPasteSpecialSource={readPasteSpecialSourceFromRuntime}
         onPasteSpecial={handlePasteSpecial}
         functionArguments={functionArgumentsHost}
@@ -6124,19 +3815,6 @@ export function App({
         <div className="workbook-opening-screen" role="status" aria-live="polite">
           {t('appOpeningWorkbook')}
         </div>
-      )}
-      {encryptedPasswordPrompt && (
-        <EncryptedWorkbookPasswordDialog
-          error={encryptedPasswordPrompt.error}
-          onSubmit={(password) => answerEncryptedWorkbookPassword(password)}
-          onClose={() => answerEncryptedWorkbookPassword(null)}
-        />
-      )}
-      {changeWorkbookPasswordOpen && (
-        <ChangeWorkbookPasswordDialog
-          onSubmit={updateWorkbookPassword}
-          onClose={() => setChangeWorkbookPasswordOpen(false)}
-        />
       )}
       <ThreadedCommentsPane getRuntime={getRuntime} />
       <NotePicturesPane
@@ -6156,14 +3834,6 @@ export function App({
           setNotePopupCard(null)
         }}
       />
-      {redactDialog && (
-        <RedactDialog
-          seed={redactDialog.seed}
-          rangeLabel={redactDialog.rangeLabel}
-          onSubmit={onRedactConfirm}
-          onCancel={() => setRedactDialog(null)}
-        />
-      )}
       {findReplaceService && (
         <FindReplacePanel
           service={findReplaceService}
@@ -6186,30 +3856,6 @@ export function App({
               .registerContainerElement(element)
             return () => disposable?.dispose()
           }}
-        />
-      )}
-      {spellDialogOpen && (
-        <SpellingDialog
-          onClose={() => setSpellDialogOpen(false)}
-          getWorkbook={() => univerRef.current?.univerAPI.getActiveWorkbook() ?? null}
-          isWithheld={(sheetId, row, column) =>
-            (redactionIndexRef.current ?? NO_REDACTIONS).labelAt(sheetId, row, column) !== null
-          }
-          onJumpTo={(sheetId, row, column) => {
-            void selectWorkbookRange(
-              readContext(),
-              sheetId,
-              { startRow: row, endRow: row, startColumn: column, endColumn: column },
-              setMessage,
-            )
-          }}
-          lazyNote={
-            lazyWorkbookRef.current && !lazyWorkbookRef.current.flags.preloadComplete
-              ? t('appLoadedRegionOnly')
-              : ''
-          }
-          sessionIgnoredRef={spellSessionIgnoredRef}
-          setMessage={setMessage}
         />
       )}
       {cellsDialog !== null && univerRef.current && (
@@ -6235,28 +3881,12 @@ export function App({
           onClose={() => setSymbolDialogOpen(false)}
         />
       )}
-      {screenshotDialogOpen && (
-        <ScreenshotDialog
-          onInsert={(dataUrl, width, height) =>
-            handleInsertScreenshot(visualContext(), dataUrl, width, height)
-          }
-          onClose={() => setScreenshotDialogOpen(false)}
-        />
-      )}
       {iconsDialogOpen && (
         <IconsDialog
           onInsert={(dataUrl, size, name) =>
             handleInsertIconImpl(visualContext(), dataUrl, size, name)
           }
           onClose={() => setIconsDialogOpen(false)}
-        />
-      )}
-      {equationDialogOpen && (
-        <EquationDialog
-          onInsert={(dataUrl, width, height) =>
-            handleInsertEquationImpl(visualContext(), dataUrl, width, height)
-          }
-          onClose={() => setEquationDialogOpen(false)}
         />
       )}
       {recommendedCharts !== null && (
@@ -6381,33 +4011,6 @@ export function App({
                 refreshLinkStatuses()
               }
             })()
-          }}
-          onChangeSource={(index) => {
-            void (async () => {
-              const file = lazyWorkbookRef.current?.file
-              const sessionId = file && !file.needsSaveAs ? file.sessionId : null
-              if (sessionId === null || linksBusy) return
-              // a web source has no local file to point at
-              if (linkStatuses.find((link) => link.index === index)?.source === null) return
-              const picked = await window.desktopApi.selectExternalLinkSource()
-              if (!picked) return
-              setLinksBusy(true)
-              try {
-                pendingExternalLinkOpsRef.current = {
-                  broken: [],
-                  retargets: [{ index, target: externalFileTarget(picked) }],
-                }
-                await handleSave('save')
-              } finally {
-                pendingExternalLinkOpsRef.current = null
-                setLinksBusy(false)
-                refreshLinkStatuses()
-              }
-            })()
-          }}
-          onReveal={(index) => {
-            const file = lazyWorkbookRef.current?.file
-            if (file) window.desktopApi.revealLinkSource({ sessionId: file.sessionId, index })
           }}
           onClose={() => setLinksOpen(false)}
         />

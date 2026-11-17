@@ -96,7 +96,6 @@ import { t } from './i18n/locale'
 import { requestCellsAction } from './insert-delete-cells'
 import { applyRightToLeftView, sheetIsRightToLeft } from './sheet-rtl-view'
 import type { CellsMode } from './insert-delete-cells'
-import { mergeWorkbooksIntoCurrent } from './merge-workbooks'
 import { openActiveDataValidationDropdown } from './data-validation-dropdown'
 import {
   handleOpenSlicerPicker,
@@ -172,9 +171,7 @@ export interface RibbonCommandContext {
   setChartDialog: (dialog: { kind: ChartDialogKind; editKey: string }) => void
   setSymbolDialogOpen: (open: boolean) => void
   openCellsDialog: (mode: CellsMode) => void
-  setScreenshotDialogOpen: (open: boolean) => void
   setIconsDialogOpen: (open: boolean) => void
-  setEquationDialogOpen: (open: boolean) => void
   openRecommendedCharts: () => void
   setPendingEdits: (count: number) => void
   visualContext: () => VisualActionContext
@@ -183,7 +180,6 @@ export interface RibbonCommandContext {
   visualArrangeContext: () => VisualArrangeContext
   pivotContext: () => PivotActionContext
   handlePageLayoutCommand: (rest: string) => void
-  handleExportPdf: () => Promise<boolean>
 }
 
 /// Resolves interned style references and merges row/col/sheet styles —
@@ -795,17 +791,11 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
     case 'insert-symbol':
       ctx.setSymbolDialogOpen(true)
       return
-    case 'insert-screenshot':
-      ctx.setScreenshotDialogOpen(true)
-      return
     case 'recommended-charts-open':
       ctx.openRecommendedCharts()
       return
     case 'insert-icons':
       ctx.setIconsDialogOpen(true)
-      return
-    case 'insert-equation':
-      ctx.setEquationDialogOpen(true)
       return
     case 'import-csv':
       handleImportCsv(ctx.dataToolsContext())
@@ -1393,10 +1383,6 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
     ctx.handlePageLayoutCommand(command.slice('page-layout:'.length))
     return
   }
-  if (command === 'export-pdf') {
-    void ctx.handleExportPdf()
-    return
-  }
   if (command.startsWith('row-height:') || command.startsWith('col-width:')) {
     const active = runtime.univerAPI.getActiveWorkbook()?.getActiveRange()
     if (!worksheet || !active) {
@@ -1908,16 +1894,6 @@ export function handleRibbonCommand(ctx: RibbonCommandContext, command: string):
             .setFormula(`=${argument}(${letter}${startRow + 1}:${letter}${lastRow + 1})`)
         }
         ctx.setMessage(t('appAutofnInserted', { fn: argument }))
-        return
-      }
-      case 'merge-workbooks': {
-        const runtime = ctx.univerRef.current
-        if (!runtime) return
-        void mergeWorkbooksIntoCurrent({
-          runtime,
-          lazyWorkbookRef: ctx.lazyWorkbookRef,
-          setMessage: ctx.setMessage,
-        })
         return
       }
       case 'insert-now': {

@@ -68,7 +68,6 @@ export interface VisualActionContext {
   shapeEditRef: { current: (visualId: string, changes: ShapeEditChanges) => void }
   setMessage: (message: string) => void
   setRevision: (revision: number) => void
-  setPreview: (plan: ChangePlan | null) => void
   setPendingEdits: (count: number) => void
   pivotContext: () => PivotActionContext
   queueDemoVisualInstall: (runtime: UniverRuntime) => void
@@ -159,7 +158,6 @@ function insertDemoChartFromSelection(
     })
     const receipt = ctx.adapterRef.current.apply(plan)
     ctx.setRevision(receipt.revision)
-    ctx.setPreview(null)
     ctx.queueDemoVisualInstall(runtime)
     ctx.setMessage(t('appChartInsertedDemo'))
   } catch (error: unknown) {
@@ -792,24 +790,6 @@ export async function handleRecommendedCharts(
     return null
   }
   return recommendations
-}
-
-export function handleInsertScreenshot(
-  ctx: VisualActionContext,
-  dataUrl: string,
-  width: number,
-  height: number,
-): void {
-  insertPictureVisual(ctx, dataUrl, 'image/png', 'Screenshot.png', width, height)
-}
-
-export function handleInsertEquation(
-  ctx: VisualActionContext,
-  dataUrl: string,
-  width: number,
-  height: number,
-): void {
-  insertPictureVisual(ctx, dataUrl, 'image/png', 'Equation.png', width, height)
 }
 
 export function handleInsertIcon(

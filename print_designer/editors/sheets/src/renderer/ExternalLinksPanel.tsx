@@ -9,18 +9,13 @@ import type { ExternalLinkRow } from '../shared/desktop-api'
 /// open). Update re-reads reachable sources; broken links stay on their
 /// cached values (Excel's own behaviour). Break turns the link's formulas
 /// into their cached literals (Excel asks for confirmation because the file
-/// cannot undo it); Change Source repoints the link at another file without
-/// touching formulas or cached values. It is not offered for a web source
-/// (`source: null`): there is no local file to repoint, and a `file:///`
-/// target would be wrong for it.
+/// cannot undo it).
 export function ExternalLinksPanel({
   links,
   busy,
   notice,
   onUpdate,
-  onReveal,
   onBreak,
-  onChangeSource,
   onClose,
 }: {
   readonly links: readonly ExternalLinkRow[]
@@ -28,10 +23,7 @@ export function ExternalLinksPanel({
   /** why the listing is empty when it is not simply "no links" */
   readonly notice?: 'unsaved' | null
   readonly onUpdate: () => void
-  /** the row's link index, not its path: the main process resolves the source */
-  readonly onReveal: (index: number) => void
   readonly onBreak: (index: number) => void
-  readonly onChangeSource: (index: number) => void
   readonly onClose: () => void
 }): ReactElement {
   const { t } = useI18n()
@@ -79,25 +71,6 @@ export function ExternalLinksPanel({
                 </td>
                 <td>{link.sheetNames.join(', ')}</td>
                 <td>
-                  {link.reachable === true && link.source !== null ? (
-                    <button
-                      className="watch-remove"
-                      data-tip={t('appLinksLocate')}
-                      onClick={() => onReveal(link.index)}
-                    >
-                      📂
-                    </button>
-                  ) : null}
-                  {link.source !== null ? (
-                    <button
-                      className="watch-remove"
-                      data-tip={t('appLinksChangeSource')}
-                      disabled={busy}
-                      onClick={() => onChangeSource(link.index)}
-                    >
-                      🔗
-                    </button>
-                  ) : null}
                   {confirming === link.index ? (
                     <button
                       className="watch-remove"

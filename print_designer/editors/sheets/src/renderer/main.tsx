@@ -1,19 +1,17 @@
+// The browser adapter must register window.desktopApi before anything in the
+// renderer resolves it (module init order matters more than import side here).
+import '../adapter/register'
+
 import ReactDOM from 'react-dom/client'
 import { htmlDir, htmlLang, type Lang } from '@genoffice/i18n'
-import { applyAiPanelPrefs, installScreenTips } from '@genoffice/ui'
+import { installScreenTips } from '@genoffice/ui'
 
 import '@genoffice/ui/tokens.css'
 import '@genoffice/ui/screentip.css'
-import '@genoffice/ui/ai-model-picker.css'
-import '@genoffice/ui/ai-queue-strip.css'
-import '@genoffice/ui/ai-usage.css'
-import '@genoffice/ui/ai-skills.css'
 import '@genoffice/ui/color-picker.css'
 import '@genoffice/ui/dropdown.css'
 import '@genoffice/ui/ribbon-collapse.css'
 import '@genoffice/ui/markdown.css'
-import '@genoffice/ui/ai-panel-prefs.css'
-import '@genoffice/ui/ai-scope-quote.css'
 import '@univerjs/preset-sheets-core/lib/index.css'
 
 import { App } from './App'
@@ -67,14 +65,14 @@ async function loadCellFonts(): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
-  let lang: Lang = 'zh'
+  let lang: Lang = 'en'
   let theme: UiTheme = 'system'
   let docTheme: DocTheme = 'follow'
   try {
-    // per-promise catch: standalone runs have no app:get-theme handler, and
-    // that rejection must not drop a resolved language
+    // per-promise catch: the adapter always resolves these, but a dev renderer
+    // without the bridge must not lose the already-resolved language
     ;[lang, theme, docTheme] = await Promise.all([
-      window.desktopApi.getLanguage().catch(() => 'zh' as const),
+      window.desktopApi.getLanguage().catch(() => 'en' as const),
       window.desktopApi.getTheme().catch(() => 'system' as const),
       window.desktopApi.getDocumentTheme?.().catch(() => 'follow' as const),
     ])
@@ -87,19 +85,11 @@ async function bootstrap(): Promise<void> {
   applyTheme(theme)
   applyDocumentTheme(docTheme ?? 'follow')
   await loadCellFonts()
-  // A spare view can receive a file while its renderer is still booting.
-  // Check the queued path before the first React paint so it never looks Ready.
-  const queuedWorkbookAtBoot = await window.desktopApi?.hasQueuedWorkbook?.().catch(() => false)
   window.desktopApi?.onThemeChanged(applyTheme)
   window.desktopApi?.onDocumentThemeChanged?.(applyDocumentTheme)
-  await window.desktopApi
-    ?.getAiPanelPrefs?.()
-    .then(applyAiPanelPrefs)
-    .catch(() => {})
-  window.desktopApi?.onAiPanelPrefsChanged?.(applyAiPanelPrefs)
   ReactDOM.createRoot(root!).render(
     <LocaleProvider initial={lang}>
-      <App queuedWorkbookAtBoot={queuedWorkbookAtBoot === true} />
+      <App />
     </LocaleProvider>,
   )
 }

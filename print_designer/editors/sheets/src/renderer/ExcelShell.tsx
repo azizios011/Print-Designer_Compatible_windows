@@ -1,17 +1,8 @@
 import type { IFunctionInfo } from '@univerjs/engine-formula'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { platformShortcuts } from '@genoffice/i18n'
-import {
-  Dropdown,
-  SHAPE_GALLERY_GROUPS,
-  ShapePreview,
-  useDismissablePopover,
-  useRibbonCollapse,
-  aiPanelInitiallyOpen,
-  rememberAiPanelOpen,
-  useAiSidebarEnabled,
-  type AiTokenUsageView,
-} from '@genoffice/ui'
+import { Dropdown, useDismissablePopover, useRibbonCollapse } from '@genoffice/ui'
+import { SHAPE_GALLERY_GROUPS, ShapePreview } from './shape-gallery'
 
 import {
   BorderAllIcon,
@@ -23,7 +14,6 @@ import {
   BorderThickOuterIcon,
   BorderTopIcon,
   CaretIcon,
-  GensparkMark,
   RIBBON_GLYPH_ICONS,
   RedoIcon,
   SaveAsIcon,
@@ -40,7 +30,6 @@ import { AllowEditRangesDialog } from './AllowEditRangesDialog'
 import { ProtectSheetDialog } from './ProtectSheetDialog'
 import type { SheetProtectionAllow } from '@genoffice/xlsx-gateway/gateway/xlsx-protection'
 import { GoToDialog } from './GoToDialog'
-import { QueriesDialog } from './QueriesDialog'
 import { SheetTabContextMenu } from './SheetTabContextMenu'
 import type { SheetTabActions } from './sheet-tab-actions'
 import { PasteSpecialDialog } from './PasteSpecialDialog'
@@ -77,15 +66,6 @@ import { stepFontSize } from './font-size-ladder'
 import { scrollRibbonOnWheel } from './ribbon-wheel'
 
 import type { ChartSeriesVisualState } from '@genoffice/xlsx-gateway/domain/chart-visual'
-import type { ChangePlan } from '@genoffice/xlsx-gateway/domain/workbook.types'
-import type {
-  AttachmentMeta,
-  WorkbookConnection as QueryConnection,
-  WorkbookQueriesResult,
-} from '../shared/desktop-api'
-import { AiChatPanel, type AiChatMessage } from './ai/AiChatPanel'
-import { AiSelectionAsk } from './ai/AiSelectionAsk'
-import type { SelectionAskAnchor } from './ai/selection-ask'
 import {
   PivotDialog,
   type PivotCreateRequest,
@@ -117,8 +97,6 @@ import { SubtotalDialog, type SubtotalConfig } from './SubtotalDialog'
 import { ConsolidateDialog } from './ConsolidateDialog'
 import type { ConsolidateConfig } from './consolidate'
 import { HeaderFooterDialog, type HeaderFooterResult } from './HeaderFooterDialog'
-import type { PrintPreviewHost } from './page-layout-actions'
-import { PrintDialog } from './PrintDialog'
 import type { HeaderFooterParts } from './edit-journal'
 import { useModalDialog } from './modal-dialog'
 import type { SelectedTableRibbon } from './table-design-actions'
@@ -213,21 +191,6 @@ function toggleFormulaBarExpand(): void {
     ?.click()
 }
 
-/// Review > Translate targets, shown in their native names (never localized).
-const TRANSLATE_LANGUAGES = [
-  'English',
-  '简体中文',
-  '繁體中文',
-  '日本語',
-  '한국어',
-  'Español',
-  'Français',
-  'Deutsch',
-  'Português',
-  'Русский',
-  'العربية',
-] as const
-
 /// Glyph icons live in ribbon-icons.tsx, drawn to the shared icon standard
 /// (24×24 canvas, 1.5px strokes, round caps/joins); unmapped glyphs render
 /// as text (letterforms such as $, ?, θ, ƒx are typography, not icons).
@@ -241,60 +204,17 @@ function ToolSymbol({ symbol }: { readonly symbol: string }): React.JSX.Element 
 
 interface ExcelShellProps {
   readonly openingWorkbook: boolean
-  readonly prompt: string
-  readonly preview: ChangePlan | null
   readonly selectionFormat: SelectionFormat | null
   readonly formatPainterActive: boolean
-  /// True when the workbook has any cell content (the one-click AI action
+  /// True when the workbook has any cell content (the one-click action
   /// buttons are greyed out on an empty sheet).
   readonly sheetHasContent: boolean
-  /// true while the real LLM agent is running (composer disabled meanwhile).
-  readonly aiBusy: boolean
-  /** tokens billed across the session, shown beside the composer */
-  readonly sessionUsage?: AiTokenUsageView
-  readonly chat: readonly AiChatMessage[]
-  readonly historicChat?: readonly AiChatMessage[]
-  /// Chat attachments (chips + 📎 button + drag-and-drop), same structure as the
-  /// docs/slides AI panels.
-  readonly attachments: readonly AttachmentMeta[]
-  readonly attachedSkills: readonly string[]
-  readonly onToggleSkill: (name: string) => void
-  readonly attachNotice: string | null
-  readonly onPickAttachments: () => void
-  readonly onAddAttachmentPaths: (paths: readonly string[]) => void
-  readonly onAddPastedImage: (data: ArrayBuffer, ext: string) => void
-  readonly onRemoveAttachment: (path: string) => void
-  readonly onPromptChange: (prompt: string) => void
-  /** Send the composer text, or the given instruction when provided (Retry also
-   *  resends that message's original attachments and passes the failed bubble's
-   *  chat index so the send replaces it in place) */
-  readonly onSend: (
-    instruction?: string,
-    attachments?: readonly AttachmentMeta[],
-    retryIndex?: number,
-  ) => void
-  readonly onStop: () => void
-  readonly onNewChat: () => void
   readonly onUndo: (steps?: number) => void
-  /// A1 notation of the multi-cell selection the AI composer offers as this
-  /// run's scope, or null when the resting single-cell selection carries none.
-  readonly aiScopeRange: string | null
-  /// Header names when that scope covers whole columns: they label the chip in
-  /// place of the range, because a column is a name to the user, not a letter.
-  readonly aiScopeColumns: readonly string[] | null
-  /// The range above belongs to a run in flight and can no longer be dropped.
-  readonly aiScopeLocked: boolean
-  /// Drag endpoint and viewport bounds used to place the localized trigger.
-  readonly aiSelectionAskAnchor: SelectionAskAnchor | null
-  readonly onAiSelectionAskDismiss: () => void
-  readonly onAiScopeDismiss: () => void
-  /// Citation link in an AI answer: jumps the grid to the cited cell/range.
-  readonly onAiCitation: (href: string) => void
   readonly onCommand: (command: string) => void
   /// True while Univer's in-cell editor is open (Backspace must delete
   /// characters, not clear the selection).
   readonly onIsCellEditing: () => boolean
-  /// Left side of the status bar (ready / streaming / AI progress messages).
+  /// Left side of the status bar (ready / background progress messages).
   readonly statusMessage: string
   readonly emptyCsvNotice: boolean
   readonly onOpenWorkbook: () => void
@@ -311,10 +231,8 @@ interface ExcelShellProps {
   /// file-backed session (the in-memory demo workbook has nowhere to copy).
   readonly canSaveAs: boolean
   readonly onSaveAs: () => void
-  /** Ask the model for a name, then open Save As with it prefilled */
-  readonly onNameWithAi: () => void
   /// QAT redo (workbook history, same path as the app menu's ⇧⌘Z); undo
-  /// shares the AI panel's onUndo above.
+  /// shares the QAT's onUndo above.
   readonly onRedo: () => void
   /// Undo/redo stack occupancy: the QAT buttons grey out when there is nothing to apply.
   readonly canUndo: boolean
@@ -351,8 +269,6 @@ interface ExcelShellProps {
   readonly onGetWorkbookProtection: () => boolean | null
   /// True when the current OOXML file is encrypted with a workbook-open password.
   readonly passwordProtected: boolean
-  /// Spelling preference echo (Review ▸ Proofing toggle; gates F7 / Spelling).
-  readonly spellcheckOn: boolean
   readonly formulaBarVisible: boolean
   /// Cross-highlight ("reading mode") of the active row/column, echoed by the View checkbox.
   readonly crossHighlightVisible: boolean
@@ -399,8 +315,6 @@ interface ExcelShellProps {
   /// Name Box / Go To jump; returns an error message, or null on success.
   readonly onGoToReference: (ref: string) => string | null
   readonly onListDefinedNames: () => readonly { name: string; ref: string }[]
-  /// Data › Queries & Connections: the open workbook's connections (read-only).
-  readonly onReadWorkbookQueries: () => Promise<WorkbookQueriesResult>
   readonly onReadPasteSpecialSource: () => Promise<PasteSpecialSource>
   /// Resolves to an error message, or null on success.
   readonly onPasteSpecial: (
@@ -416,16 +330,11 @@ interface ExcelShellProps {
   readonly onGetConsolidateDefault: () => string
   /// Header & Footer dialog OK; returns an error message, or null on success.
   readonly onApplyHeaderFooter: (result: HeaderFooterResult) => string | null
-  /// Print with Preview, open while non-null.
-  readonly printHost: PrintPreviewHost | null
-  readonly onClosePrint: () => void
   /// Session page-layout settings of the active sheet, echoed by the Page
   /// Layout tab's controls (untouched fields show the app default).
   readonly pageLayout: PageLayoutEcho
   /// Manual-recalc mode echo for the Calculation Options menu.
   readonly calcManual: boolean
-  /// The workbook's refreshable web queries.
-  readonly queryConnections: readonly QueryConnection[]
   /// Formula view (sheetView/@showFormulas) of the active sheet: the sheet
   /// renders formulas instead of their values.
   readonly showFormulas: boolean
@@ -458,8 +367,6 @@ export interface PageLayoutEcho {
   readonly printTitles?: string | null | undefined
   readonly header?: HeaderFooterParts | null | undefined
   readonly footer?: HeaderFooterParts | null | undefined
-  /// Page Break Preview overlay on for the active sheet (View tab echo).
-  readonly pageBreakPreview?: boolean | undefined
 }
 
 interface PivotPaneState {
@@ -483,23 +390,9 @@ const PIVOT_MODEL_ERRORS: Record<PivotModelError, StringKey> = {
 }
 
 export function ExcelShell({
-  prompt,
-  preview,
   selectionFormat,
   formatPainterActive,
   sheetHasContent,
-  aiBusy,
-  sessionUsage,
-  chat,
-  historicChat,
-  attachments,
-  attachedSkills,
-  onToggleSkill,
-  attachNotice,
-  onPickAttachments,
-  onAddAttachmentPaths,
-  onAddPastedImage,
-  onRemoveAttachment,
   onGetSortColumns,
   onGetSheetProtection,
   onProtectSheet,
@@ -507,7 +400,6 @@ export function ExcelShell({
   sheetTabActions,
   onGetWorkbookProtection,
   passwordProtected,
-  spellcheckOn,
   formulaBarVisible,
   crossHighlightVisible,
   onGetProtectedRanges,
@@ -528,7 +420,6 @@ export function ExcelShell({
   activeCellA1,
   onGoToReference,
   onListDefinedNames,
-  onReadWorkbookQueries,
   onReadPasteSpecialSource,
   onPasteSpecial,
   functionArguments,
@@ -537,20 +428,7 @@ export function ExcelShell({
   onCreateConsolidate,
   onGetConsolidateDefault,
   onApplyHeaderFooter,
-  printHost,
-  onClosePrint,
-  onPromptChange,
-  onSend,
-  onStop,
-  onNewChat,
   onUndo,
-  aiScopeRange,
-  aiScopeColumns,
-  aiScopeLocked,
-  aiSelectionAskAnchor,
-  onAiSelectionAskDismiss,
-  onAiScopeDismiss,
-  onAiCitation,
   onCommand,
   onIsCellEditing,
   openingWorkbook,
@@ -565,7 +443,6 @@ export function ExcelShell({
   onSave,
   canSaveAs,
   onSaveAs,
-  onNameWithAi,
   onRedo,
   canUndo,
   canRedo,
@@ -580,7 +457,6 @@ export function ExcelShell({
   onGetCreateTableRange,
   pageLayout,
   calcManual,
-  queryConnections,
   showFormulas,
   onGoalSeek,
   onDataTable,
@@ -597,24 +473,12 @@ export function ExcelShell({
     compact: t('appRibbonCompact'),
     expandFull: t('appRibbonExpand'),
   })
-  // Persisted so a closed AI panel stays closed on next launch (docs/slides parity)
-  const [isCopilotOpen, setIsCopilotOpen] = useState(() =>
-    aiPanelInitiallyOpen('ai-sheets-show-ai'),
-  )
-  // the sidebar switch is a soft hide; it closes the panel when it turns off
-  const aiSidebarEnabled = useAiSidebarEnabled(setIsCopilotOpen)
   // Native listener, delegated because each ribbon tab mounts its own `.ribbon`,
   // and because React registers wheel as passive, which forbids preventDefault.
   useEffect(() => {
     window.addEventListener('wheel', scrollRibbonOnWheel, { passive: false })
     return () => window.removeEventListener('wheel', scrollRibbonOnWheel)
   }, [])
-  useEffect(() => {
-    rememberAiPanelOpen('ai-sheets-show-ai', isCopilotOpen)
-  }, [isCopilotOpen])
-  // the "show the AI sidebar" setting off hides the copilot rail (soft hide):
-  // an explicit AI action (ribbon run, toggle) still opens the panel, and
-  // closing it returns to hidden — no dead affordances, no invisible runs
   const [showFormatCells, setShowFormatCells] = useState(false)
   const [axisSizeTarget, setAxisSizeTarget] = useState<'row' | 'col' | null>(null)
   const [showLinkDialog, setShowLinkDialog] = useState(false)
@@ -682,7 +546,6 @@ export function ExcelShell({
   const [showFillSeries, setShowFillSeries] = useState(false)
   const [showConsolidateDialog, setShowConsolidateDialog] = useState(false)
   const [showGoTo, setShowGoTo] = useState(false)
-  const [showQueries, setShowQueries] = useState(false)
   const [pasteSpecialSource, setPasteSpecialSource] = useState<PasteSpecialSource | null>(null)
   const [showZoomDialog, setShowZoomDialog] = useState(false)
   const [statsMenuAt, setStatsMenuAt] = useState<{ x: number; y: number } | null>(null)
@@ -705,7 +568,6 @@ export function ExcelShell({
     return () => document.removeEventListener('contextmenu', onContextMenu)
   }, [])
   const [showHeaderFooter, setShowHeaderFooter] = useState(false)
-  const [printRevision, setPrintRevision] = useState(0)
   const [showAllowEditRanges, setShowAllowEditRanges] = useState(false)
   const [protectSheetMode, setProtectSheetMode] = useState<'protect' | 'unprotect' | null>(null)
   /// Non-null while the Chart Design → Add Chart Element text prompt is open.
@@ -737,7 +599,6 @@ export function ExcelShell({
     else if (command === 'subtotal-open') setShowSubtotalDialog(true)
     else if (command === 'consolidate-open') setShowConsolidateDialog(true)
     else if (command === 'goto-open') setShowGoTo(true)
-    else if (command === 'queries-open') setShowQueries(true)
     else if (command === PASTE_SPECIAL_OPEN_SHELL_COMMAND) {
       void onReadPasteSpecialSource().then((source) => setPasteSpecialSource(source))
     } else if (command === 'header-footer-open') setShowHeaderFooter(true)
@@ -748,9 +609,7 @@ export function ExcelShell({
       else if (!protection.protected) setProtectSheetMode('protect')
       else if (protection.hasPassword) setProtectSheetMode('unprotect')
       else onCommand('sheet-unprotect')
-    } else if (command === 'ai-open-panel') setIsCopilotOpen(true)
-    else if (command === 'ai-toggle-panel') setIsCopilotOpen((v) => !v)
-    else if (command === 'chart-element-title') setChartTextTarget('title')
+    } else if (command === 'chart-element-title') setChartTextTarget('title')
     else if (command === 'chart-element-axis-cat') setChartTextTarget('axis-category')
     else if (command === 'chart-element-axis-val') setChartTextTarget('axis-value')
     else if (command === 'formula-bar-toggle') toggleFormulaBarExpand()
@@ -894,9 +753,7 @@ export function ExcelShell({
 
   return (
     <main
-      className={`app-shell ${isCopilotOpen ? '' : 'copilot-collapsed'}${
-        !isCopilotOpen && !aiSidebarEnabled ? ' copilot-off' : ''
-      }`}
+      className="app-shell"
       inert={openingWorkbook}
       aria-busy={openingWorkbook}
     >
@@ -925,16 +782,6 @@ export function ExcelShell({
             onClick={onSaveAs}
           >
             <SaveAsIcon />
-          </button>
-          <button
-            type="button"
-            className="qa-btn qa-name-with-ai"
-            data-tip={t('aiNameFile')}
-            aria-label={t('aiNameFile')}
-            disabled={!canSaveAs}
-            onClick={onNameWithAi}
-          >
-            <GensparkMark />
           </button>
           <button
             type="button"
@@ -996,7 +843,6 @@ export function ExcelShell({
           sheetProtected={onGetSheetProtection()?.protected ?? null}
           workbookProtected={onGetWorkbookProtection()}
           passwordProtected={passwordProtected}
-          spellcheckOn={spellcheckOn}
           formulaBarVisible={formulaBarVisible}
           crossHighlightVisible={crossHighlightVisible}
           pageLayout={pageLayout}
@@ -1015,58 +861,14 @@ export function ExcelShell({
               .map((entry) => entry.name)
           }}
           calcManual={calcManual}
-          queryConnections={queryConnections}
           showFormulas={showFormulas}
           onRefreshPivot={onRefreshPivot}
           onIsSelectionInPivot={onIsSelectionInPivot}
           onCommand={dispatchCommand}
-          onAiRun={(nextPrompt) => {
-            setIsCopilotOpen(true)
-            onSend(nextPrompt)
-          }}
-          aiOpen={isCopilotOpen}
-          onAiToggle={() => setIsCopilotOpen((open) => !open)}
         />
       </header>
 
-      {/* AI panel docks on the left, full height under the ribbon (unified with docs) */}
       <div className="sheet-body">
-        <AiChatPanel
-          isOpen={isCopilotOpen}
-          hideRail={!aiSidebarEnabled}
-          hasContent={sheetHasContent}
-          chat={chat}
-          {...(historicChat !== undefined ? { historicChat } : {})}
-          attachments={attachments}
-          attachedSkills={attachedSkills}
-          onToggleSkill={onToggleSkill}
-          attachNotice={attachNotice}
-          onPickAttachments={onPickAttachments}
-          onAddAttachmentPaths={onAddAttachmentPaths}
-          onAddPastedImage={onAddPastedImage}
-          onRemoveAttachment={onRemoveAttachment}
-          prompt={prompt}
-          preview={preview}
-          aiBusy={aiBusy}
-          sessionUsage={sessionUsage}
-          onPromptChange={onPromptChange}
-          onSend={onSend}
-          onSendQueued={(text, atts) => {
-            if (aiBusy) return false
-            onSend(text, atts)
-            return true
-          }}
-          onStop={onStop}
-          onNewChat={onNewChat}
-          onUndo={onUndo}
-          scopeRange={aiScopeRange}
-          scopeColumns={aiScopeColumns}
-          scopeLocked={aiScopeLocked}
-          onScopeDismiss={onAiScopeDismiss}
-          onCitation={onAiCitation}
-          onExpand={() => setIsCopilotOpen(true)}
-          onCollapse={() => setIsCopilotOpen(false)}
-        />
         <div className="sheet-main">
           <section className="workbook-area">
             <div id="univer-container" className="spreadsheet" />
@@ -1087,19 +889,8 @@ export function ExcelShell({
               </div>
             )}
           </section>
-          {aiSelectionAskAnchor && aiScopeRange && !aiBusy && (
-            <AiSelectionAsk
-              anchor={aiSelectionAskAnchor}
-              range={aiScopeRange}
-              onDismiss={onAiSelectionAskDismiss}
-              onSend={(instruction) => {
-                setIsCopilotOpen(true)
-                onSend(instruction)
-              }}
-            />
-          )}
 
-          {/* Status bar spans the sheet column only — the AI dock keeps the full window height (unified with docs/slides). */}
+          {/* Status bar spans the sheet column only. */}
           <footer className="status-bar" onContextMenu={openStatsMenu}>
             <div className="status-left">
               {/* Formula view is per sheet and survives a save, so a sheet can
@@ -1114,38 +905,6 @@ export function ExcelShell({
               <span className="status-msg">{statusMessage}</span>
             </div>
             <div className="status-right">
-              {/* One-of-N view switcher, so it is a radiogroup rather than a
-                  second set of buttons named like the View tab's. */}
-              <div
-                className="view-switch"
-                role="radiogroup"
-                aria-label={t('appGroupWorkbookViews')}
-              >
-                <button
-                  className="view-btn"
-                  role="radio"
-                  data-tip={t('appNormalViewTip')}
-                  aria-label={t('appNormalViewTip')}
-                  aria-checked={pageLayout.pageBreakPreview !== true}
-                  onClick={() => {
-                    if (pageLayout.pageBreakPreview === true) onCommand('toggle-page-break-preview')
-                  }}
-                >
-                  ▦
-                </button>
-                <button
-                  className="view-btn"
-                  role="radio"
-                  data-tip={t('appPageBreakPreviewTip')}
-                  aria-label={t('appPageBreakPreviewTip')}
-                  aria-checked={pageLayout.pageBreakPreview === true}
-                  onClick={() => {
-                    if (pageLayout.pageBreakPreview !== true) onCommand('toggle-page-break-preview')
-                  }}
-                >
-                  ┆
-                </button>
-              </div>
               <button
                 className="zoom-btn"
                 data-tip={t('appZoomOut')}
@@ -1372,13 +1131,6 @@ export function ExcelShell({
           onClose={() => setPasteSpecialSource(null)}
         />
       )}
-      {showQueries && (
-        <QueriesDialog
-          load={onReadWorkbookQueries}
-          onGo={onGoToReference}
-          onClose={() => setShowQueries(false)}
-        />
-      )}
       {showGoTo && (
         <GoToDialog
           names={onListDefinedNames()}
@@ -1418,23 +1170,12 @@ export function ExcelShell({
             />
           )
         })()}
-      {printHost && (
-        <PrintDialog
-          host={printHost}
-          onClose={onClosePrint}
-          onPageSetup={() => setShowHeaderFooter(true)}
-          revision={printRevision}
-        />
-      )}
       {showHeaderFooter && (
         <HeaderFooterDialog
           initialHeader={pageLayout.header ?? null}
           initialFooter={pageLayout.footer ?? null}
           onApply={onApplyHeaderFooter}
-          onClose={() => {
-            setShowHeaderFooter(false)
-            setPrintRevision((value) => value + 1)
-          }}
+          onClose={() => setShowHeaderFooter(false)}
         />
       )}
       <SheetTabContextMenu
@@ -1984,7 +1725,6 @@ function Ribbon({
   sheetProtected,
   workbookProtected,
   passwordProtected,
-  spellcheckOn,
   formulaBarVisible,
   crossHighlightVisible,
   pageLayout,
@@ -1993,12 +1733,8 @@ function Ribbon({
   selectedTable,
   outlineSummary,
   onCommand,
-  onAiRun,
-  aiOpen,
-  onAiToggle,
   onListNames,
   calcManual,
-  queryConnections,
   showFormulas,
   onRefreshPivot,
   onIsSelectionInPivot,
@@ -2010,8 +1746,6 @@ function Ribbon({
   readonly sheetProtected: boolean | null
   readonly workbookProtected: boolean | null
   readonly passwordProtected: boolean
-  /// Spelling preference echo for the Review ▸ Proofing toggle.
-  readonly spellcheckOn: boolean
   /// View > Show echo for the formula bar toggle (app-level, not per sheet).
   readonly formulaBarVisible: boolean
   readonly crossHighlightVisible: boolean
@@ -2027,13 +1761,6 @@ function Ribbon({
   readonly onListNames: () => readonly string[]
   /** Manual-recalc mode echo for the Calculation Options menu. */
   readonly calcManual: boolean
-  /** The workbook's refreshable web queries, listed under Data ▸ Get data. */
-  readonly queryConnections: readonly QueryConnection[]
-  /** Open the AI panel and immediately send the given prompt */
-  readonly onAiRun: (prompt: string) => void
-  /** AI side panel visibility (docs/slides parity: the entry button toggles it) */
-  readonly aiOpen: boolean
-  readonly onAiToggle: () => void
   readonly onRefreshPivot: () => string | null
   readonly onIsSelectionInPivot: () => boolean
 }): React.JSX.Element {
@@ -2510,14 +2237,6 @@ function Ribbon({
               <ToolSymbol symbol="✧" />
               {t('appIcons')}
             </button>
-            <button
-              className="styles-row as-button"
-              data-tip={t('appScreenshot')}
-              onClick={() => onCommand('insert-screenshot')}
-            >
-              <ToolSymbol symbol="⧉" />
-              {t('appScreenshot')}
-            </button>
           </div>
         </RibbonGroup>
         <RibbonGroup label={t('appGroupCheckbox')}>
@@ -2679,14 +2398,6 @@ function Ribbon({
         </RibbonGroup>
         <RibbonGroup label={t('appGroupSymbols')}>
           <div className="row-stack">
-            <button
-              className="styles-row as-button"
-              data-tip={t('appEquation')}
-              onClick={() => onCommand('insert-equation')}
-            >
-              <ToolSymbol symbol="π" />
-              {t('appEquation')}
-            </button>
             <button
               className="styles-row as-button"
               data-tip={t('appSymbol')}
@@ -3115,43 +2826,11 @@ function Ribbon({
             </button>
             <button
               className="styles-row as-button"
-              data-tip={t('appMergeWorkbooksTip')}
-              onClick={() => onCommand('merge-workbooks')}
-            >
-              <ToolSymbol symbol="⧉" />
-              {t('appMergeWorkbooks')}
-            </button>
-            <button
-              className="styles-row as-button"
               data-tip={t('appRefreshAllTitle')}
               onClick={() => onCommand('refresh-all')}
             >
               <ToolSymbol symbol="⟳" />
               {t('appRefreshAll')}
-            </button>
-            {queryConnections.length > 0 ? (
-              <span className="styles-row" data-tip={t('appQueryConnectionsTitle')}>
-                <ToolSymbol symbol="⟳" />
-                {t('appRefreshQuery')}
-                <CaretIcon />
-                <MenuSelect
-                  cover
-                  label={t('appRefreshQuery')}
-                  options={queryConnections.map((c) => ({
-                    value: `query-refresh:${c.id}`,
-                    label: `${c.name} — ${queryConnectionHost(c.source)}`,
-                  }))}
-                  onPick={onCommand}
-                />
-              </span>
-            ) : null}
-            <button
-              className="styles-row as-button"
-              data-tip={t('appQueriesConnectionsTitle')}
-              onClick={() => onCommand('queries-open')}
-            >
-              <ToolSymbol symbol="⇄" />
-              {t('appQueriesConnections')}
             </button>
           </div>
         </RibbonGroup>
@@ -3275,28 +2954,6 @@ function Ribbon({
   if (activeTab === 'View') {
     return (
       <div className="ribbon" data-ribbon-body="">
-        <RibbonGroup label={t('appGroupWorkbookViews')}>
-          <RibbonButton
-            large
-            label={t('appNormalView')}
-            detail={t('appCurrentViewTitle')}
-            symbol="▦"
-            active={pageLayout.pageBreakPreview !== true}
-            onClick={() => {
-              if (pageLayout.pageBreakPreview === true) onCommand('toggle-page-break-preview')
-            }}
-          />
-          <RibbonButton
-            large
-            label={t('appPageBreakPreview')}
-            detail={t('appPageBreakPreviewTitle')}
-            symbol="┆"
-            active={pageLayout.pageBreakPreview === true}
-            onClick={() => {
-              if (pageLayout.pageBreakPreview !== true) onCommand('toggle-page-break-preview')
-            }}
-          />
-        </RibbonGroup>
         <RibbonGroup label={t('appGroupShow')}>
           <div className="check-column check-column-view">
             <button
@@ -3383,49 +3040,11 @@ function Ribbon({
         <RibbonGroup label={t('appGroupProofing')}>
           <RibbonButton
             large
-            label={t('appSpellTitle')}
-            detail={t('appSpellBtnDetail')}
-            symbol="✓"
-            onClick={() => onCommand('spell-check')}
-          />
-          <RibbonButton
-            large
             label={t('appWorkbookStatsLabel')}
             detail={t('appSheetsCellsFormulas')}
             symbol="🧮"
             onClick={() => onCommand('workbook-statistics')}
           />
-          <div className="row-stack">
-            <button
-              className="styles-row as-button"
-              aria-pressed={spellcheckOn}
-              data-tip={t('appSpellToggleTip')}
-              onClick={() => onCommand('spellcheck-toggle')}
-            >
-              <ToolSymbol symbol={spellcheckOn ? '✓' : '○'} />
-              {t('appSpellToggle')}
-            </button>
-          </div>
-        </RibbonGroup>
-        <RibbonGroup label={t('appGroupLanguage')}>
-          <div className="ribbon-tool large" data-tip={t('appTranslateTitle')}>
-            <span className="tool-icon-row">
-              <ToolSymbol symbol="文" />
-              <CaretIcon />
-            </span>
-            <span>
-              <strong>{t('appTranslate')}</strong>
-            </span>
-            <MenuSelect
-              cover
-              label={t('appTranslate')}
-              options={TRANSLATE_LANGUAGES.map((language) => ({
-                value: language,
-                label: language,
-              }))}
-              onPick={(language) => onAiRun(t('appTranslatePrompt', { language }))}
-            />
-          </div>
         </RibbonGroup>
         <RibbonGroup label={t('appGroupComments')}>
           <RibbonButton
@@ -3494,15 +3113,6 @@ function Ribbon({
             symbol={workbookProtected ? '🔓' : '🔐'}
             onClick={() => onCommand('workbook-protect')}
           />
-          {passwordProtected && (
-            <RibbonButton
-              large
-              label={t('appChangePassword')}
-              detail={t('appChangePassword')}
-              symbol="🔑"
-              onClick={() => onCommand('workbook-change-password')}
-            />
-          )}
           <RibbonButton
             large
             label={t('appAllowEditRanges')}
@@ -3532,77 +3142,6 @@ function Ribbon({
     : [...fontSizes, echoSize].sort((a, b) => a - b)
   return (
     <div className="ribbon" data-ribbon-body="">
-      <RibbonGroup label={t('appGroupAiAssistant')}>
-        <button
-          className={`ribbon-tool as-button large ai-entry ${aiOpen ? 'active' : ''}`}
-          data-tip={t('aiOpenAssistant')}
-          onClick={onAiToggle}
-        >
-          <span className="tool-icon-row">
-            <GensparkMark size={26} />
-          </span>
-          <span>
-            <strong>Genspark AI</strong>
-          </span>
-        </button>
-        <button
-          className="ribbon-tool as-button large ai-entry"
-          disabled={!sheetHasContent}
-          data-tip={t('aiCheckBtn')}
-          onClick={() => onAiRun(t('aiCheckPrompt'))}
-        >
-          <span className="tool-icon-row">
-            <span className="ai-feature-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M11 3.25C15.2802 3.25 18.75 6.71979 18.75 11C18.75 15.2802 15.2802 18.75 11 18.75C6.71979 18.75 3.25 15.2802 3.25 11C3.25 6.71979 6.71979 3.25 11 3.25Z" />
-                <path
-                  d="M7.5 10.8235L9.64097 12.9645C9.93755 13.2611 10.4177 13.2634 10.7171 12.9697L14.7647 9"
-                  strokeLinecap="round"
-                />
-                <path d="M20 20.5L16.5 17" strokeLinecap="round" />
-              </svg>
-            </span>
-          </span>
-          <span>
-            <strong>{t('aiCheckBtn')}</strong>
-          </span>
-        </button>
-        <button
-          className="ribbon-tool as-button large ai-entry"
-          disabled={!sheetHasContent}
-          data-tip={t('aiAnalyzeBtn')}
-          onClick={() => onAiRun(t('aiAnalyzePrompt'))}
-        >
-          <span className="tool-icon-row">
-            <span className="ai-feature-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3.88589 14.2073H8.48682" strokeLinecap="round" />
-                <path d="M3.88589 19.0112H8.48682" strokeLinecap="round" />
-                <path d="M3.88589 9.40369H11.692" strokeLinecap="round" />
-                <path d="M3.88589 4.59998H19.1645" strokeLinecap="round" />
-                <path d="M15.1995 10.5445C15.3784 10.0908 16.0206 10.0908 16.1996 10.5445L16.706 11.8286C17.0338 12.6598 17.6918 13.3178 18.523 13.6456L19.8071 14.1521C20.2608 14.331 20.2608 14.9732 19.8071 15.1522L18.523 15.6586C17.6918 15.9864 17.0338 16.6444 16.706 17.4756L16.1996 18.7597C16.0206 19.2134 15.3784 19.2134 15.1995 18.7597L14.693 17.4756C14.3652 16.6444 13.7072 15.9864 12.876 15.6586L11.592 15.1522C11.1382 14.9732 11.1382 14.331 11.592 14.1521L12.876 13.6456C13.7072 13.3178 14.3652 12.6598 14.693 11.8286L15.1995 10.5445Z" />
-              </svg>
-            </span>
-          </span>
-          <span>
-            <strong>{t('aiAnalyzeBtn')}</strong>
-          </span>
-        </button>
-      </RibbonGroup>
       <RibbonGroup label={t('appGroupClipboard')}>
         <button
           className="ribbon-tool as-button large"
@@ -4623,14 +4162,4 @@ function RibbonButton({
 
 function fillSeriesDefaultType(numberFormat: string | undefined): FillSeriesType {
   return numberFormat && numberFormatLabel(numberFormat) === 'Date' ? 'date' : 'linear'
-}
-
-/// The host a query reads from, shown next to its name so the reader can see
-/// where a refresh would go before they ask for one.
-function queryConnectionHost(source: string): string {
-  try {
-    return new URL(source).host
-  } catch {
-    return source
-  }
 }

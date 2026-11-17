@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { BooleanNumber, numfmt } from '@univerjs/core'
-import { Dropdown, shapePreviewPath, useDismissablePopover } from '@genoffice/ui'
+import { Dropdown, useDismissablePopover } from '@genoffice/ui'
+import { shapePreviewPath } from './shape-gallery'
 
 import type { createUniver } from './create-univer'
 

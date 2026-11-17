@@ -81,20 +81,17 @@ import {
   ensureSheetFileState,
   lazyWorkbookCellReader,
   loadVisibleRange,
-  measureImage,
   pinStreamedPrecedents,
   protectSheetGuard,
   pushVisualUndo,
   queueSparklineInstall,
   readCopySourceDirect,
-  sniffImageMime,
   workbookStructureLocked,
 } from './univer-sync'
 import {
   applyAiShapeEdit,
   buildAiChartEdit,
   insertAiChartVisual,
-  insertAiImageVisual,
   insertAiShapeVisual,
   type VisualActionContext,
 } from './visual-actions'
@@ -109,13 +106,6 @@ import {
 import type { ChartEditData, ShapeEditChanges } from './WorkbookVisuals'
 
 export type PlannedOp = StructuralChange['op']
-
-export interface LoadedImage {
-  dataUrl: string
-  mediaType: string
-  width: number
-  height: number
-}
 
 /** App-scope refs/state the executors need; built fresh per apply by App. */
 export interface OpExecutorContext {
@@ -146,7 +136,6 @@ interface OpRun {
     string,
     { value: string | number | boolean | null; formula: string | null }
   >
-  readonly imageData: ReadonlyMap<string, LoadedImage>
   readonly notices: string[]
   /// Called only AFTER a mutation actually committed (end of each op, plus the
   /// intermediate commit points of multi-step handlers): a throw before any
@@ -180,40 +169,6 @@ const SHEET_LIFECYCLE_OPS = new Set([
   'set_sheet_hidden',
   'rename_sheet',
 ])
-
-/**
- * Image bytes load BEFORE any drift check and the (synchronous) mutation
- * loop, so a slow disk read can never interleave with edits.
- */
-export async function prefetchOpImages(
-  ops: readonly PlannedOp[],
-): Promise<Map<string, LoadedImage>> {
-  const imageData = new Map<string, LoadedImage>()
-  for (const op of ops) {
-    if (op.op !== 'add_image' || imageData.has(op.path)) continue
-    let dataUrl: string
-    let mediaType: string
-    // file:// = a BYOK-generated image in the local store (fetchImage resolves it)
-    if (/^(https?|file):\/\//i.test(op.path)) {
-      const fetched = await window.desktopApi.fetchImage(op.path)
-      if (!fetched) throw new Error(t('appCannotReadImage'))
-      // Trust the bytes, not the Content-Type header the handler echoed
-      const sniffed = sniffImageMime(fetched.base64)
-      if (!sniffed) {
-        throw new Error('The downloaded image is not PNG/JPEG/GIF — pick another image URL.')
-      }
-      dataUrl = `data:${sniffed};base64,${fetched.base64}`
-      mediaType = sniffed
-    } else {
-      const image = await window.desktopApi.readLocalImage({ path: op.path })
-      dataUrl = `data:${image.mediaType};base64,${image.base64}`
-      mediaType = image.mediaType
-    }
-    const size = await measureImage(dataUrl)
-    imageData.set(op.path, { dataUrl, mediaType, ...size })
-  }
-  return imageData
-}
 
 /**
  * Names the formula a batch's first row/column-shifting delete would strand,
@@ -384,9 +339,7 @@ async function applyChangePlanNow(
   const { runtime, workbook, state, lazyWorkbookRef, setMessage, setPendingEdits } = ctx
   const plannedOps = plan.structuralChanges.map((structural) => structural.op)
   const notices: string[] = []
-  let imageData: Map<string, LoadedImage>
   try {
-    imageData = await prefetchOpImages(plannedOps)
     const spanError = await precheckStructuralDeletes(state, workbook, plannedOps)
     if (spanError) throw new Error(options.userFacing ? t('appDeleteSpanFormulas') : spanError)
     for (const sheetId of planTargetSheets(plan)) {
@@ -395,7 +348,7 @@ async function applyChangePlanNow(
       }
     }
   } catch (error: unknown) {
-    const reason = error instanceof Error ? error.message : t('appCannotReadImage')
+    const reason = error instanceof Error ? error.message : t('appApplyTxFailed')
     setMessage(reason)
     return { ok: false, reason }
   }
@@ -436,7 +389,6 @@ async function applyChangePlanNow(
       sheetById,
       plannedOps,
       plannedCellContents,
-      imageData,
       notices,
       markApplied: () => {
         anyApplied = true
@@ -534,7 +486,7 @@ async function applyChangePlanNow(
 
 /** One structural / layout / range-level op against the live workbook. */
 async function executeOp(op: PlannedOp, run: OpRun): Promise<void> {
-  const { ctx, workbook, sheetById, plannedCellContents, imageData, notices } = run
+  const { ctx, workbook, sheetById, plannedCellContents, notices } = run
   const { runtime, state, lazyWorkbookRef, setMessage, setPendingEdits } = ctx
   // BeforeCommandExecute gates cancel commands silently; re-check them
   // here so a gated op fails loud instead of reporting success.
@@ -648,9 +600,9 @@ async function executeOp(op: PlannedOp, run: OpRun): Promise<void> {
   } else if (op.op === 'edit_shape') {
     applyAiShapeEdit(ctx.visualContext(), runtime, state, op)
   } else if (op.op === 'add_image') {
-    const image = imageData.get(op.path)
-    if (!image) throw new Error(t('appImageNotLoaded', { path: op.path }))
-    insertAiImageVisual(ctx.visualContext(), runtime, state, op, image)
+    // No add_image op reaches here anymore (the AI proposer is cut); the
+    // browser build also has no URL/local image fetch to load one with.
+    throw new Error(t('appImageNotLoaded', { path: op.path }))
   } else if (op.op === 'add_table') {
     applyAiTableAdd(runtime, state, op)
   } else if (op.op === 'add_table_row') {
