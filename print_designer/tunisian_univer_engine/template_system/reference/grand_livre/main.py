@@ -37,7 +37,7 @@ def ledger_report() -> Any:
 	"""
 	try:
 		return frappe.get_module(LEDGER_REPORT_MODULE)
-	except Exception:
+	except Exception:  # noqa: BLE001 — any import failure is surfaced as the same actionable throw
 		frappe.throw(
 			_("The Ledger Data report is not available (missing module {0}).").format(
 				LEDGER_REPORT_MODULE
@@ -195,25 +195,30 @@ def build_grand_livre_xlsx(filters: dict, generated_at: str | None = None) -> by
 	return buffer.getvalue()
 
 
-def workbook_page_count(xlsx_bytes: bytes) -> int:
+def workbook_page_count(xlsx_bytes: bytes, read_only: bool = True) -> int:
 	"""The design's own page count: the "Page X/Y" footer markers it writes.
 
 	The PDF must match this total (the MAX_PAGE_HEIGHT_PT budget); the
 	conversion check compares the LibreOffice PDF page count against it.
+	read_only (the default) scans values only — at Grand Livre scale the
+	normal-mode load alone costs tens of seconds.
 	"""
-	workbook = load_workbook_from_bytes(xlsx_bytes)
+	workbook = load_workbook_from_bytes(xlsx_bytes, read_only=read_only)
 	sheet = workbook.active
 	pages = 0
-	for row in sheet.iter_rows():
-		for cell in row:
-			if isinstance(cell.value, str):
-				match = re.match(r"^Page \d+/(\d+)$", cell.value)
-				if match:
-					pages = max(pages, int(match.group(1)))
+	try:
+		for row in sheet.iter_rows():
+			for cell in row:
+				if isinstance(cell.value, str):
+					match = re.match(r"^Page \d+/(\d+)$", cell.value)
+					if match:
+						pages = max(pages, int(match.group(1)))
+	finally:
+		workbook.close()
 	return pages
 
 
-def load_workbook_from_bytes(xlsx_bytes: bytes):
+def load_workbook_from_bytes(xlsx_bytes: bytes, read_only: bool = False):
 	from openpyxl import load_workbook
 
-	return load_workbook(io.BytesIO(xlsx_bytes))
+	return load_workbook(io.BytesIO(xlsx_bytes), read_only=read_only)
