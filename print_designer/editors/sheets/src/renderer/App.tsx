@@ -507,7 +507,7 @@ function dateTextKind(value: string): 'date-like' | 'text' {
   return kind
 }
 
-export function App(): React.JSX.Element {
+export function App({ preview = false }: { preview?: boolean } = {}): React.JSX.Element {
   const adapterRef = useRef(new InMemoryWorkbookAdapter(initialSnapshot))
   const univerRef = useRef<UniverRuntime | null>(null)
   const lazyWorkbookRef = useRef<LazyWorkbookState | null>(null)
@@ -1022,20 +1022,24 @@ export function App(): React.JSX.Element {
       presets: [
         UniverSheetsCorePreset({
           container: 'univer-container',
-          // header: true + toolbar: false renders only the name box + formula
-          // bar (the Univer ribbon needs both flags).
-          header: true,
+          // Grid-only preview (the Ledger Data document views): no name box,
+          // no formula bar, no context menu, no sheet tabs/footer, no status
+          // bar — the grid canvas only; selection and copy keep working
+          // (read-only enforcement stays in univer-sync via file.readOnly).
+          header: !preview,
           toolbar: false,
-          contextMenu: true,
-          formulaBar: true,
-          footer: {
-            sheetBar: true,
-            statisticBar: true,
-            menus: true,
-            // zoom lives in the custom full-width status bar (unified with docs/slides)
-            zoomSlider: false,
-          },
-          statusBarStatistic: true,
+          contextMenu: !preview,
+          formulaBar: !preview,
+          footer: preview
+            ? false
+            : {
+                sheetBar: true,
+                statisticBar: true,
+                menus: true,
+                // zoom lives in the custom full-width status bar (unified with docs/slides)
+                zoomSlider: false,
+              },
+          statusBarStatistic: !preview,
           // OOXML resolves style defaults as cell over row over column; the
           // render skeleton defaults to column-wins unless this flag is set.
           sheets: { isRowStylePrecedeColumnStyle: true },
@@ -3709,6 +3713,7 @@ export function App(): React.JSX.Element {
         />
       )}
       <ExcelShell
+        preview={preview}
         openingWorkbook={openingWorkbook}
         sheetHasContent={sheetHasContent}
         pageLayout={activePageLayout}

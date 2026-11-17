@@ -68,13 +68,15 @@ async function bootstrap(): Promise<void> {
   let lang: Lang = 'en'
   let theme: UiTheme = 'system'
   let docTheme: DocTheme = 'follow'
+  let uiMode = ''
   try {
     // per-promise catch: the adapter always resolves these, but a dev renderer
     // without the bridge must not lose the already-resolved language
-    ;[lang, theme, docTheme] = await Promise.all([
+    ;[lang, theme, docTheme, uiMode] = await Promise.all([
       window.desktopApi.getLanguage().catch(() => 'en' as const),
       window.desktopApi.getTheme().catch(() => 'system' as const),
       window.desktopApi.getDocumentTheme?.().catch(() => 'follow' as const),
+      window.desktopApi.getUiMode().catch(() => ''),
     ])
   } catch {
     /* dev renderer without the preload bridge */
@@ -89,7 +91,7 @@ async function bootstrap(): Promise<void> {
   window.desktopApi?.onDocumentThemeChanged?.(applyDocumentTheme)
   ReactDOM.createRoot(root!).render(
     <LocaleProvider initial={lang}>
-      <App />
+      <App preview={uiMode === 'preview'} />
     </LocaleProvider>,
   )
 }

@@ -2799,6 +2799,10 @@ export interface DesktopApi {
   getLanguage(): Promise<'en' | 'fr' | 'ar'>
   /** language switched by the host page (unused in the iframe build) */
   onLanguageChanged(handler: (lang: 'en' | 'fr' | 'ar') => void): () => void
+  /** the host UI mode ('' = full editor; 'preview' = grid only: no shell
+   * header/ribbon, no formula bar, no sheet tabs/footer, no context menu,
+   * no save — selection and copy keep working) */
+  getUiMode(): Promise<string>
   /** current UI theme preference */
   getTheme(): Promise<UiTheme>
   onThemeChanged(handler: (theme: UiTheme) => void): () => void

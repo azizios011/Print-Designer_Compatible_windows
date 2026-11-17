@@ -25,6 +25,9 @@ export interface Bootstrap {
   fullName: string
   /** open the workbook read-only (the host page passes ?readonly=1) */
   readonly: boolean
+  /** UI mode: 'preview' = grid only (no shell header/ribbon, no formula
+   * bar, no sheet tabs/footer, no context menu, no save); '' = full editor */
+  mode: string
 }
 
 let boot: Bootstrap | null = null
@@ -35,7 +38,7 @@ export function bootstrap(): Promise<Bootstrap> {
   if (!handshakePromise) {
     handshakePromise = new Promise<Bootstrap>((resolve) => {
       const fallback = window.setTimeout(() => {
-        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '', readonly: false })
+        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '', readonly: false, mode: '' })
       }, 5000)
       const onMessage = (ev: MessageEvent) => {
         if (ev.source !== window.parent) return
@@ -46,6 +49,7 @@ export function bootstrap(): Promise<Bootstrap> {
           csrfToken: string
           fullName: string
           readonly: string | boolean
+          mode: string
         }>
         if (data?.type !== 'sheets-editor-init') return
         window.clearTimeout(fallback)
@@ -56,6 +60,7 @@ export function bootstrap(): Promise<Bootstrap> {
           csrfToken: typeof data.csrfToken === 'string' ? data.csrfToken : '',
           fullName: typeof data.fullName === 'string' ? data.fullName : '',
           readonly: data.readonly === true || data.readonly === '1',
+          mode: typeof data.mode === 'string' ? data.mode : '',
         }
         resolve(boot)
       }
@@ -64,6 +69,12 @@ export function bootstrap(): Promise<Bootstrap> {
     })
   }
   return handshakePromise
+}
+
+/** true when the host opened the editor in grid-only preview mode
+ * (implies readonly: the caller must ALSO force file.readOnly) */
+export function isPreviewMode(): boolean {
+  return boot?.mode === 'preview'
 }
 
 async function api<T>(method: string, params?: Record<string, unknown>): Promise<T> {

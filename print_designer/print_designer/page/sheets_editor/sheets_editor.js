@@ -48,6 +48,10 @@ frappe.pages["sheets-editor"].on_page_load = function (wrapper) {
 			fullName: frappe.user_info(frappe.session.user).fullname,
 			// integration hook: /app/sheets-editor?file=...&readonly=1
 			readonly: params().get("readonly") === "1",
+			// integration hook: /app/sheets-editor?file=...&mode=preview —
+			// grid only: no shell header/ribbon, no formula bar, no sheet
+			// tabs/footer, no context menu, no save (implies readonly)
+			mode: params().get("mode") || "",
 		};
 		// the editor signals sheets-editor-ready on every boot (also after a
 		// save-driven session swap reloads the workbook in place)

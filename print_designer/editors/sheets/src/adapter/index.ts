@@ -55,6 +55,7 @@ import type { SheetStructuralOps } from '@genoffice/xlsx-gateway/gateway/xlsx-ga
 import {
   bootstrap,
   fetchFrappeFile,
+  isPreviewMode,
   saveFrappeFile,
   toBase64,
   fromBase64,
@@ -473,6 +474,10 @@ export const sheetsApi: DesktopApi = {
     return () => {}
   },
 
+  async getUiMode(): Promise<string> {
+    return (await bootstrap()).mode
+  },
+
   async getTheme(): Promise<UiTheme> {
     return 'system'
   },
@@ -521,7 +526,8 @@ export const sheetsApi: DesktopApi = {
     }
     const bytes = fromBase64(data.contentBase64)
     const parsed = await parseFromBytes(bytes, data.name, lang)
-    if (boot.readonly) parsed.file.readOnly = true
+    // preview mode implies read-only: no edit and no save can happen
+    if (boot.readonly || isPreviewMode()) parsed.file.readOnly = true
     session = {
       file: parsed.file,
       parsed,

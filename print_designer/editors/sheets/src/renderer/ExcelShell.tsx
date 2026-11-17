@@ -204,6 +204,10 @@ function ToolSymbol({ symbol }: { readonly symbol: string }): React.JSX.Element 
 
 interface ExcelShellProps {
   readonly openingWorkbook: boolean
+  /// Grid-only preview mode (the Ledger Data document views): no shell
+  /// header/ribbon, no formula bar, no sheet tabs/footer, no save UI —
+  /// only the grid canvas; selection and copy keep working.
+  readonly preview?: boolean
   readonly selectionFormat: SelectionFormat | null
   readonly formatPainterActive: boolean
   /// True when the workbook has any cell content (the one-click action
@@ -390,6 +394,7 @@ const PIVOT_MODEL_ERRORS: Record<PivotModelError, StringKey> = {
 }
 
 export function ExcelShell({
+  preview = false,
   selectionFormat,
   formatPainterActive,
   sheetHasContent,
@@ -757,6 +762,7 @@ export function ExcelShell({
       inert={openingWorkbook}
       aria-busy={openingWorkbook}
     >
+      {preview ? null : (
       <header className={`excel-header ${collapse.rootClass}`} ref={collapse.rootRef}>
         <nav
           className={`ribbon-tabs ${IN_TAB ? '' : IS_MAC ? 'ribbon-tabs-mac' : 'ribbon-tabs-win'}`}
@@ -867,6 +873,7 @@ export function ExcelShell({
           onCommand={dispatchCommand}
         />
       </header>
+      )}
 
       <div className="sheet-body">
         <div className="sheet-main">
@@ -890,7 +897,9 @@ export function ExcelShell({
             )}
           </section>
 
-          {/* Status bar spans the sheet column only. */}
+          {/* Status bar spans the sheet column only. Grid-only preview has
+              no status bar: the zoom slider and stats menu are edit chrome. */}
+          {!preview && (
           <footer className="status-bar" onContextMenu={openStatsMenu}>
             <div className="status-left">
               {/* Formula view is per sheet and survives a save, so a sheet can
@@ -939,6 +948,7 @@ export function ExcelShell({
               </button>
             </div>
           </footer>
+          )}
           {statsMenuAt && (
             <StatusBarStatsMenu
               at={statsMenuAt}
