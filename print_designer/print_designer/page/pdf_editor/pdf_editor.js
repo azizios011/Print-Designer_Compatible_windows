@@ -45,6 +45,11 @@ frappe.pages["pdf-editor"].on_page_load = function (wrapper) {
 			lang: frappe.boot.lang || "en",
 			csrfToken: frappe.csrf_token,
 			fullName: frappe.user_info(frappe.session.user).fullname,
+			// integration hook: /app/pdf-editor?file=...&mode=preview — the
+			// preview mode strips every editing surface (ribbon, sidebars,
+			// search, save) and keeps only the page canvas, scroll, zoom and
+			// the slim page indicator
+			mode: params().get("mode") || "",
 		};
 		// the editor signals pdf-editor-ready on every boot (also after a
 		// generated document replaces the current one via a cache-busted reload)

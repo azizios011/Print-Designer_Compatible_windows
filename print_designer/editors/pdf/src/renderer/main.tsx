@@ -23,17 +23,19 @@ function applyTheme(theme: UiTheme): void {
 }
 
 void (async () => {
-  const [lang, theme] = await Promise.all([
+  const [lang, theme, uiMode] = await Promise.all([
     window.pdfApi.getLanguage().catch(() => 'en' as const),
     window.pdfApi.getTheme().catch(() => 'system' as const),
+    window.pdfApi.getUiMode().catch(() => ''),
   ])
   document.documentElement.lang = htmlLang(lang as Lang)
   document.documentElement.dir = htmlDir(lang)
   applyTheme(theme)
   window.pdfApi.onThemeChanged(applyTheme)
+  if (uiMode === 'preview') document.documentElement.setAttribute('data-ui-mode', 'preview')
   createRoot(document.getElementById('root')!).render(
     <LocaleProvider initial={lang}>
-      <App />
+      <App preview={uiMode === 'preview'} />
     </LocaleProvider>,
   )
 })()

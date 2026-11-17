@@ -1101,6 +1101,9 @@ export interface PdfApi {
   onFileRenamed(handler: (newPath: string) => void): () => void
   getLanguage(): Promise<Lang>
   onLanguageChanged(handler: (lang: Lang) => void): () => void
+  /** the host UI mode ('' = full editor, 'preview' = read-only page
+   * canvas only: no ribbon, no sidebars, no search, no save) */
+  getUiMode(): Promise<string>
   getTheme(): Promise<UiTheme>
   onThemeChanged(handler: (theme: UiTheme) => void): () => void
 }

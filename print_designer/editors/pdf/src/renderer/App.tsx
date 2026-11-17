@@ -382,7 +382,7 @@ const RIBBON_TABS = [
 ] as const
 type RibbonTab = (typeof RIBBON_TABS)[number]['id'] | 'fillForm' | 'formDesign'
 
-export default function App() {
+export default function App({ preview = false }: { preview?: boolean } = {}) {
   const { lang, t } = useI18n()
   const collapse = useRibbonCollapse('genoffice-pdf-ribbon-collapsed', {
     collapse: t('ribbonCollapse'),
@@ -433,7 +433,7 @@ export default function App() {
   const [pageInput, setPageInput] = useState('1')
   const [sidebar, setSidebar] = useState<
     'thumbs' | 'outline' | 'comments' | 'compare' | 'attachments' | null
-  >('thumbs')
+  >(preview ? null : 'thumbs')
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null)
   const [compareName, setCompareName] = useState<string | null>(null)
   const [compareBusy, setCompareBusy] = useState(false)
@@ -6867,6 +6867,12 @@ export default function App() {
       if (!shouldHandleDocumentUndo(e.target, e.key, e.metaKey || e.ctrlKey)) return
       if (e.metaKey || e.ctrlKey) {
         const k = e.key.toLowerCase()
+        if (preview) {
+          // preview mode: no save / undo / search / print — only zoom and
+          // fit-to-width survive; the browser's own dialogs are suppressed
+          if (['s', 'z', 'f', 'p'].includes(k)) e.preventDefault()
+          if (!['=', '+', '-', '0'].includes(k)) return
+        }
         if (ribbonTab === 'formDesign' && !formDesignPreview && !inEditable) {
           if (k === 'c' && selectedFormFieldIds.length > 0) {
             e.preventDefault()
@@ -7484,6 +7490,7 @@ export default function App() {
 
   return (
     <div className="app" inert={redactionCopyInFlight} aria-busy={redactionCopyInFlight}>
+      {!preview && (
       <div className={`ribbon ${collapse.rootClass}`} ref={collapse.rootRef}>
         <div className="ribbon-tabs" onDoubleClick={collapse.onTabsDoubleClick}>
           <button
@@ -8351,6 +8358,7 @@ export default function App() {
           )}
         </div>
       </div>
+      )}
       <input
         ref={imageFileRef}
         type="file"

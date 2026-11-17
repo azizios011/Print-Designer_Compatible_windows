@@ -23,6 +23,9 @@ export interface Bootstrap {
   lang: Lang
   csrfToken: string
   fullName: string
+  /** UI mode: 'preview' strips every editing surface (page canvas, scroll,
+   * zoom and the page indicator only); '' is the full editor */
+  mode: string
 }
 
 let boot: Bootstrap | null = null
@@ -33,7 +36,7 @@ export function bootstrap(): Promise<Bootstrap> {
   if (!handshakePromise) {
     handshakePromise = new Promise<Bootstrap>((resolve) => {
       const fallback = window.setTimeout(() => {
-        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '' })
+        resolve({ file: null, lang: 'en', csrfToken: '', fullName: '', mode: '' })
       }, 5000)
       const onMessage = (ev: MessageEvent) => {
         if (ev.source !== window.parent) return
@@ -43,6 +46,7 @@ export function bootstrap(): Promise<Bootstrap> {
           lang: string
           csrfToken: string
           fullName: string
+          mode: string
         }>
         if (data?.type !== 'pdf-editor-init') return
         window.clearTimeout(fallback)
@@ -52,6 +56,7 @@ export function bootstrap(): Promise<Bootstrap> {
           lang: normalizeLang(data.lang),
           csrfToken: typeof data.csrfToken === 'string' ? data.csrfToken : '',
           fullName: typeof data.fullName === 'string' ? data.fullName : '',
+          mode: typeof data.mode === 'string' ? data.mode : '',
         }
         resolve(boot)
       }
@@ -60,6 +65,11 @@ export function bootstrap(): Promise<Bootstrap> {
     })
   }
   return handshakePromise
+}
+
+/** true when the host opened the editor in read-only preview mode */
+export function isPreviewMode(): boolean {
+  return boot?.mode === 'preview'
 }
 
 async function api<T>(method: string, params?: Record<string, unknown>): Promise<T> {

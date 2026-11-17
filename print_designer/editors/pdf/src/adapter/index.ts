@@ -658,6 +658,10 @@ export const pdfApi: PdfApi = {
     return () => {}
   },
 
+  async getUiMode() {
+    return (await bootstrap()).mode
+  },
+
   async getTheme() {
     return 'system'
   },
