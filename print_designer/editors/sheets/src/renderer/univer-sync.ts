@@ -555,6 +555,9 @@ export function loadWorkbookSkeleton(runtime: UniverRuntime | null, file: Workbo
     const sheet = created.getSheetBySheetId(activeMeta.id)
     if (sheet) created.setActiveSheet(sheet)
   }
+  // Read-only opens (the Ledger Data document views): posted data must not
+  // edit — the flag comes from the adapter's init payload.
+  if (created && file.readOnly) created.setEditable(false)
 }
 
 /// Mac Excel (the fidelity reference) lays columns out in whole points with

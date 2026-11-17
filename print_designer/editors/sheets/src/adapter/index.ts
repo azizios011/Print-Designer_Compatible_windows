@@ -138,6 +138,9 @@ async function saveWorkbook(
   mode: 'save' | 'save-as',
 ): Promise<WorkbookSaveResult> {
   const state = requireSession(sessionId)
+  if (state.file.readOnly) {
+    throw new Error('This workbook is open read-only — edits cannot be saved')
+  }
   const parsed = state.parsed
 
   /** sheetId → file sheet name, the resolution the desktop main performed */
