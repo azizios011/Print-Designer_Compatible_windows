@@ -123,13 +123,13 @@ def _diff(old: str, new: str, name: str) -> str:
 	)
 
 
-def fix_version(template_name: str, version_no: int) -> dict:
+def fix_version(template_name: str, version_no: int, template_doctype: str = "Document Template") -> dict:
 	"""Run up to fix_max_attempts LLM repair rounds on a Failed version.
 
 	Every round appends a new version row (created_by_llm=1) carrying the
 	corrected files and a unified diff against the previous files; the
 	validation re-runs on each row. The template is never auto-activated."""
-	parent = frappe.get_doc("Document Template", template_name)
+	parent = frappe.get_doc(template_doctype, template_name)
 	settings_doc = frappe.get_single("Document Template Settings")
 	if not settings_doc.fix_enabled:
 		frappe.throw(_("LLM fixing is disabled in Document Template Settings."))
@@ -180,7 +180,7 @@ def fix_version(template_name: str, version_no: int) -> dict:
 			file_doc = frappe.new_doc("File")
 			file_doc.file_name = f"{parent.name}-v{version_no_new}-{name}"
 			file_doc.is_private = 1
-			file_doc.attached_to_doctype = "Document Template"
+			file_doc.attached_to_doctype = template_doctype
 			file_doc.attached_to_name = parent.name
 			file_doc.content = merged[name].encode("utf-8")
 			file_doc.insert()

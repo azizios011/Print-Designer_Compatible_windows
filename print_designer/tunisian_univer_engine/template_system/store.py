@@ -3,11 +3,17 @@
 
 """Materialize, locate and render Document Template versions.
 
-Version files stay as private attachments on the Document Template record.
+Version files stay as private attachments on the parent template record.
 On activation the active version's files are materialized under
 <site>/private/document_type_system/<category>/<owner_slug>/<layout_id>/v<N>/
 so the template code can be imported and executed without touching the app
 directory. Rendered workbooks cache under .../document_type_system/_cache/.
+
+Every function takes an optional template_doctype (default "Document
+Template") so the same machinery serves the Facturation "Print Format"
+parent doctypes; when that doctype carries an applies_to field, its layouts
+are stored as "<applies_to_slug>-<layout_id>" to keep applies_to values of
+the same owner apart.
 """
 
 import hashlib
@@ -15,6 +21,8 @@ import json
 import os
 
 import frappe
+
+from print_designer.tunisian_univer_engine.template_system.contract import slugify
 
 BASE = "document_type_system"
 CACHE_DIR = "_cache"
@@ -24,20 +32,27 @@ def _private_path(*parts: str) -> str:
 	return frappe.get_site_path("private", *parts)
 
 
-def _template_row(template_name: str):
-	return frappe.db.get_value(
-		"Document Template",
-		template_name,
-		["category", "owner_slug", "layout_id", "status", "active_version"],
-		as_dict=True,
-	)
+def _template_row(template_name: str, template_doctype: str = "Document Template"):
+	fields = ["category", "owner_slug", "layout_id", "status", "active_version"]
+	if frappe.get_meta(template_doctype).has_field("applies_to"):
+		fields.append("applies_to")
+	return frappe.db.get_value(template_doctype, template_name, fields, as_dict=True)
 
 
-def version_dir(template_name: str, version_no: int) -> str:
-	row = _template_row(template_name)
+def _layout_dir(row) -> str:
+	"""Directory name for a layout under the owner's slug. Parent doctypes
+	with an applies_to field hold several applies_to values under one owner,
+	so their layouts are "<applies_to_slug>-<layout_id>"."""
+	if row.get("applies_to"):
+		return f"{slugify(row.applies_to)}-{row.layout_id}"
+	return row.layout_id
+
+
+def version_dir(template_name: str, version_no: int, template_doctype: str = "Document Template") -> str:
+	row = _template_row(template_name, template_doctype)
 	if not row:
-		frappe.throw(f"Document Template {template_name} not found.")
-	return _private_path(BASE, row.category, row.owner_slug, row.layout_id, f"v{version_no}")
+		frappe.throw(f"{template_doctype} {template_name} not found.")
+	return _private_path(BASE, row.category, row.owner_slug, _layout_dir(row), f"v{version_no}")
 
 
 def _file_content(file_url: str) -> bytes:
@@ -57,12 +72,12 @@ def _version_row(parent, version_no: int):
 	frappe.throw(f"Version {version_no} not found on {parent.name}.")
 
 
-def materialize_version(template_name: str, version_no: int) -> str:
+def materialize_version(template_name: str, version_no: int, template_doctype: str = "Document Template") -> str:
 	"""Write the version's attached files to the private template directory;
 	returns the materialized directory."""
-	parent = frappe.get_doc("Document Template", template_name)
+	parent = frappe.get_doc(template_doctype, template_name)
 	row = _version_row(parent, version_no)
-	target = version_dir(template_name, version_no)
+	target = version_dir(template_name, version_no, template_doctype)
 	os.makedirs(target, exist_ok=True)
 	for fieldname, target_name in (
 		("metadata_file", "metadata.py"),
@@ -81,59 +96,73 @@ def materialize_version(template_name: str, version_no: int) -> str:
 	return target
 
 
-def get_template(category: str, owner_doctype: str, owner: str, layout_id: str | None = None):
+def get_template(
+	category: str,
+	owner_doctype: str,
+	owner: str,
+	layout_id: str | None = None,
+	template_doctype: str = "Document Template",
+):
 	"""Return the active version of the matching template.
 
 	vente templates always resolve to the "default" layout. achat/bank owners
 	may hold several layouts: without a layout_id every active layout of the
-	owner is returned (a list); with one, a single dict or None."""
-	filters = {
-		"category": category,
-		"owner_doctype": owner_doctype,
-		"owner": owner,
-		"status": "Active",
-	}
+	owner is returned (a list); with one, a single dict or None. Parent
+	doctypes with an owner_party field (the Facturation print formats) match
+	owner directly against it; the Document Template matches the
+	(owner_doctype, owner) pair."""
+	filters = {"category": category, "status": "Active"}
+	if frappe.get_meta(template_doctype).has_field("owner_party"):
+		filters["owner_party"] = owner
+	else:
+		filters["owner_doctype"] = owner_doctype
+		filters["owner"] = owner
 	if layout_id or category == "vente":
 		filters["layout_id"] = layout_id or "default"
-	names = frappe.get_all("Document Template", filters=filters, pluck="name", order_by="modified desc")
+	names = frappe.get_all(template_doctype, filters=filters, pluck="name", order_by="modified desc")
 	results = []
 	for name in names:
-		active_version = frappe.db.get_value("Document Template", name, "active_version")
+		active_version = frappe.db.get_value(template_doctype, name, "active_version")
 		if not active_version:
 			continue
 		results.append({
 			"template": name,
 			"version": active_version,
-			"dir": version_dir(name, active_version),
+			"dir": version_dir(name, active_version, template_doctype),
 		})
 	if layout_id or category == "vente":
 		return results[0] if results else None
 	return results
 
 
-def activate_version(template_name: str, version_no: int) -> str:
+def activate_version(template_name: str, version_no: int, template_doctype: str = "Document Template") -> str:
 	"""Materialize the version and mark the template Active on it."""
-	parent = frappe.get_doc("Document Template", template_name)
+	parent = frappe.get_doc(template_doctype, template_name)
 	_version_row(parent, version_no)
-	target = materialize_version(template_name, version_no)
+	target = materialize_version(template_name, version_no, template_doctype)
 	frappe.db.set_value(
-		"Document Template",
+		template_doctype,
 		template_name,
 		{"status": "Active", "active_version": version_no},
 	)
 	return target
 
 
-def render(template_name: str, data: dict, version_no: int | None = None) -> str:
+def render(
+	template_name: str,
+	data: dict,
+	version_no: int | None = None,
+	template_doctype: str = "Document Template",
+) -> str:
 	"""Render the template's xlsx_creator for data, cached by
 	sha256(json(data) + version); returns the absolute cached file path."""
-	parent = frappe.get_doc("Document Template", template_name)
+	parent = frappe.get_doc(template_doctype, template_name)
 	version_no = version_no or parent.active_version
 	if not version_no:
 		frappe.throw(f"{template_name} has no active version to render.")
-	version_dir_path = version_dir(template_name, version_no)
+	version_dir_path = version_dir(template_name, version_no, template_doctype)
 	if not os.path.isdir(version_dir_path):
-		materialize_version(template_name, version_no)
+		materialize_version(template_name, version_no, template_doctype)
 
 	cache_key = hashlib.sha256(
 		json.dumps(data, sort_keys=True, default=str).encode("utf-8") + str(version_no).encode("utf-8")

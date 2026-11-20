@@ -15,8 +15,8 @@ from print_designer.tunisian_univer_engine.template_system.llm_fix import (
 )
 
 
-def _get_version(template_name: str, version_no: int):
-	parent = frappe.get_doc("Document Template", template_name)
+def _get_version(template_name: str, version_no: int, template_doctype: str = "Document Template"):
+	parent = frappe.get_doc(template_doctype, template_name)
 	for row in parent.versions:
 		if row.version_no == version_no:
 			return parent, row
@@ -49,9 +49,9 @@ def _settings_timeout() -> int:
 
 
 @frappe.whitelist(methods=["POST"])
-def validate_version(template: str, version_no: int) -> dict:
+def validate_version(template: str, version_no: int, template_doctype: str = "Document Template") -> dict:
 	frappe.only_for("System Manager")
-	parent, row = _get_version(template, version_no)
+	parent, row = _get_version(template, version_no, template_doctype)
 	files = _version_files(parent, row)
 	timeout = _settings_timeout()
 	result = validator.validate_template(
@@ -66,38 +66,39 @@ def validate_version(template: str, version_no: int) -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
-def fix_version_with_llm(template: str, version_no: int) -> dict:
+def fix_version_with_llm(template: str, version_no: int, template_doctype: str = "Document Template") -> dict:
 	frappe.only_for("System Manager")
-	return _fix_version(template_name=template, version_no=version_no)
+	return _fix_version(template_name=template, version_no=version_no, template_doctype=template_doctype)
 
 
 @frappe.whitelist(methods=["POST"])
-def activate_version(template: str, version_no: int) -> dict:
+def activate_version(template: str, version_no: int, template_doctype: str = "Document Template") -> dict:
 	frappe.only_for("System Manager")
-	parent, row = _get_version(template, version_no)
+	parent, row = _get_version(template, version_no, template_doctype)
 	if row.validation_status != "Passed":
 		frappe.throw(_("Only validated (Passed) versions can be activated."))
-	target = store.activate_version(template_name=template, version_no=version_no)
+	target = store.activate_version(template_name=template, version_no=version_no, template_doctype=template_doctype)
 	return {"ok": True, "status": "Active", "active_version": version_no, "dir": target}
 
 
 @frappe.whitelist(methods=["GET"])
-def preview_version(template: str, version_no: int) -> dict:
+def preview_version(template: str, version_no: int, template_doctype: str = "Document Template") -> dict:
 	frappe.only_for("System Manager")
-	parent, row = _get_version(template, version_no)
+	parent, row = _get_version(template, version_no, template_doctype)
 	files = _version_files(parent, row)
 	timeout = _settings_timeout()
 	cache_path = store.render(
 		template_name=template,
 		data=_sample_data(files),
 		version_no=version_no,
+		template_doctype=template_doctype,
 	)
 	with open(cache_path, "rb") as handle:
 		content = handle.read()
 	file_doc = frappe.new_doc("File")
 	file_doc.file_name = f"preview-{frappe.scrub(template)}-v{version_no}.xlsx"
 	file_doc.is_private = 1
-	file_doc.attached_to_doctype = "Document Template"
+	file_doc.attached_to_doctype = template_doctype
 	file_doc.attached_to_name = template
 	file_doc.content = content
 	file_doc.insert()
