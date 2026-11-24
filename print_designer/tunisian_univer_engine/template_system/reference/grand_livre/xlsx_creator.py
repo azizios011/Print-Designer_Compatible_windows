@@ -4,9 +4,11 @@ from datetime import datetime
 from typing import Any
 
 from openpyxl import Workbook
-from openpyxl.styles import Border, PatternFill, Side
+from openpyxl.styles import Alignment, Border, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
+
+ROW_H_PERIOD_WITH_EXTRACT = 24.0
 
 try:
     from .metadata import (
@@ -49,6 +51,7 @@ try:
         THIN_SIDE,
     )
 except ImportError:
+    from openpyxl.styles import Alignment
     from metadata import (
         ACC_HEADER_HEIGHT,
         ALIGN_CENTER,
@@ -130,8 +133,11 @@ def _write_page_header(
     start_row: int,
     company_info: dict[str, str],
     period: dict[str, str],
+    extract_label: str | None = None,
 ) -> int:
-    """Write the top company block + 'Grand Livre' + 'Du ... Au ...' and return next row."""
+    """Write the top company block + 'Grand Livre' + 'Du ... Au ...' plus, when
+    the Type Extrait is restricted, the selection ("Compte 401000",
+    "Du 401000 au 411999", "Saisie libre: ...") and return next row."""
     company_lines = [
         company_info.get("name", ""),
         company_info.get("address", ""),
@@ -156,10 +162,16 @@ def _write_page_header(
     period_row = start_row + 4
     ws.merge_cells(start_row=period_row, start_column=1, end_row=period_row, end_column=9)
     period_text = f"Du {period.get('from_date', '')} Au {period.get('to_date', '')}"
+    if extract_label:
+        period_text = f"{period_text}\n{extract_label}"
     p_cell = ws.cell(row=period_row, column=1, value=period_text)
     p_cell.font = FONT_PERIOD
-    p_cell.alignment = ALIGN_CENTER
-    ws.row_dimensions[period_row].height = ROW_H_PERIOD
+    p_cell.alignment = Alignment(
+        horizontal="center",
+        vertical="center",
+        wrap_text=bool(extract_label),
+    )
+    ws.row_dimensions[period_row].height = ROW_H_PERIOD_WITH_EXTRACT if extract_label else ROW_H_PERIOD
 
     # Small spacer row before first table
     gap_row = start_row + 5
@@ -385,6 +397,7 @@ def build_grand_livre_workbook(
     accounts: list[dict[str, Any]],
     generated_at: str | None = None,
     paginate_for_pdf: bool = True,
+    extract_label: str | None = None,
 ) -> Workbook:
     """
     Build an Excel Workbook styled like the Grand Livre PDF, with tight page fill
@@ -416,7 +429,12 @@ def build_grand_livre_workbook(
     ws.page_margins.header = PAGE_MARGINS["header"]
     ws.page_margins.footer = PAGE_MARGINS["footer"]
 
-    body_budget_pt = MAX_PAGE_HEIGHT_PT - PAGE_HEADER_HEIGHT - PAGE_FOOTER_HEIGHT
+    # a second period/extract line grows the repeated page header: subtract
+    # the same height from the body budget so PDF pagination cannot overflow
+    page_header_height = PAGE_HEADER_HEIGHT + (
+        ROW_H_PERIOD_WITH_EXTRACT - ROW_H_PERIOD if extract_label else 0.0
+    )
+    body_budget_pt = MAX_PAGE_HEIGHT_PT - page_header_height - PAGE_FOOTER_HEIGHT
     current_row = 1
     used_body_pt = 0.0
 
@@ -431,10 +449,10 @@ def build_grand_livre_workbook(
             ws, current_row, cum_debit, cum_credit, cum_solde, generated_at, page_footer_rows
         )
         ws.row_breaks.append(Break(id=current_row - 1))
-        current_row = _write_page_header(ws, current_row, company_info, period)
+        current_row = _write_page_header(ws, current_row, company_info, period, extract_label)
         used_body_pt = 0.0
 
-    current_row = _write_page_header(ws, current_row, company_info, period)
+    current_row = _write_page_header(ws, current_row, company_info, period, extract_label)
     if not paginate_for_pdf:
         ws.print_title_rows = "1:5"
 

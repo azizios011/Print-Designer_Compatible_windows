@@ -91,11 +91,67 @@ def _account_name(account: str) -> str:
 	return name or account
 
 
+def _extract_label(filters: dict) -> str:
+	"""A short, human-readable statement of the Type Extrait selection for the
+	workbook header: "Compte 401000", "Du 401000 au 411999",
+	"Saisie libre: 401, 411000, 512-531". Empty when unrestricted
+	("Tous les comptes" / "Comptes non soldes")."""
+	extract_type = filters.get("extract_type") or "Tous les comptes"
+	if extract_type == "Compte":
+		target = (filters.get("account") or "").strip()
+		if not target:
+			return ""
+		num = target.split(" · ")[0].strip() if " · " in target else ""
+		if not num:
+			# the filter value is the Chart of Account name: show its number
+			resolved = frappe.db.get_value("Chart of Account", target, "account_number")
+			num = resolved or target
+		return f"Compte {num}"
+	if extract_type == "Intervalle des comptes":
+		fr = (filters.get("from_account") or "").strip()
+		to = (filters.get("to_account") or "").strip()
+		fr = fr.split(" · ")[0].strip() if " · " in fr else fr
+		to = to.split(" · ")[0].strip() if " · " in to else to
+		parts = []
+		if fr:
+			parts.append(f"Du {fr}")
+		if to:
+			parts.append(f"au {to}")
+		return " ".join(parts)
+	if extract_type == "Saisie libre":
+		raw = (filters.get("saisie_libre") or "").strip()
+		return f"Saisie libre: {raw}" if raw else ""
+	return ""
+
+
+def _selected_account_names(
+	ledger: Any,
+	filters: dict,
+	context: dict[str, Any],
+	from_date,
+	to_date,
+) -> set[str] | None:
+	"""The account restriction from the report's own filter builder, or None
+	when the extract is unrestricted. The opening-balance query below is a
+	separate read from the grille and must apply the same Compte / Intervalle /
+	Saisie libre / grand-livre type selection — otherwise excluded accounts
+	would reappear in the workbook with their opening balance."""
+	for condition in ledger._ledger_filters(filters, context, from_date, to_date):
+		field, operator, value = condition
+		if field == "account" and operator == "in":
+			return set(value)
+		if field == "name" and operator == "=" and value == "":
+			# the report's no-match sentinel: an empty selection, not all accounts
+			return set()
+	return None
+
+
 def _opening_only_accounts(
 	context: dict[str, Any],
 	exercice_debut,
 	until,
 	known_accounts: set[str],
+	selected_accounts: set[str] | None = None,
 ) -> dict[str, float]:
 	"""Net balances of accounts that posted nothing inside the period but
 	carry a non-zero "Solde a nouveau" — the design shows them with their
@@ -123,7 +179,9 @@ def _opening_only_accounts(
 	return {
 		row.account: flt(row.balance, 3)
 		for row in opening_rows
-		if row.account not in known_accounts and abs(flt(row.balance, 3)) > BALANCE_TOLERANCE
+		if row.account not in known_accounts
+		and (selected_accounts is None or row.account in selected_accounts)
+		and abs(flt(row.balance, 3)) > BALANCE_TOLERANCE
 	}
 
 
@@ -173,8 +231,13 @@ def build_grand_livre_xlsx(filters: dict, generated_at: str | None = None) -> by
 
 	# accounts with a report balance but no period rows
 	exercice_debut = getdate(context["date_debut"]) if context.get("date_debut") else None
+	selected_accounts = _selected_account_names(ledger, filters, context, from_date, to_date)
 	openings = _opening_only_accounts(
-		context, exercice_debut, from_date - timedelta(days=1), set(by_account)
+		context,
+		exercice_debut,
+		from_date - timedelta(days=1),
+		set(by_account),
+		selected_accounts,
 	)
 	for code, opening in sorted(openings.items()):
 		account = {"code": code, "name": _account_name(code), "entries": [], "opening_solde": opening}
@@ -186,9 +249,15 @@ def build_grand_livre_xlsx(filters: dict, generated_at: str | None = None) -> by
 
 	company_info = _company_info(context["entreprise"])
 	period = {"from_date": _fr_date(from_date), "to_date": _fr_date(to_date)}
+	extract_label = _extract_label(filters)
 
 	workbook = build_grand_livre_workbook(
-		company_info, period, accounts, generated_at=generated_at, paginate_for_pdf=True
+		company_info,
+		period,
+		accounts,
+		generated_at=generated_at,
+		paginate_for_pdf=True,
+		extract_label=extract_label,
 	)
 	buffer = io.BytesIO()
 	workbook.save(buffer)
